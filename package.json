@@ -1,0 +1,34 @@
+{
+  "name": "spatial-tool-guard",
+  "version": "0.1.0",
+  "description": "Deterministic CRS resolution, GeoJSON validation, and topology sanity checks wrapped around LLM tool calls.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "spatial-tool-guard-mcp": "dist/mcp/server.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev:mcp": "tsx src/mcp/server.ts",
+    "test": "vitest run",
+    "demo": "tsx examples/demo.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@turf/turf": "^7.2.0",
+    "proj4": "^2.15.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^22.10.5",
+    "@types/proj4": "^2.5.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}
