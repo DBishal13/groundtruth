@@ -1,4 +1,4 @@
-# Validation plan — Spatial tool-executing agents
+# Validation plan — Groundtruth
 
 ## 1. Write the one-page problem brief
 Use README.md's "Why this matters" and "Core risk" sections as the seed. Rewrite it in the words of the buyer, not the researcher.

@@ -4,8 +4,9 @@
  * shows what the guard catches before any GIS library touches them.
  */
 import { guardToolCall } from "../src/core/guard.js";
+import type { FieldExpectation } from "../src/core/types.js";
 
-const calls: { label: string; args: Record<string, unknown> }[] = [
+const calls: { label: string; args: Record<string, unknown>; expectations?: Record<string, FieldExpectation> }[] = [
   {
     label: "clean buffer call",
     args: {
@@ -44,10 +45,21 @@ const calls: { label: string; args: Record<string, unknown> }[] = [
       to_crs: "OSGB 1936 Grid System",
     },
   },
+  {
+    label: "intersect call where one side is a centroid, not the polygon it summarizes",
+    args: {
+      geometry_a: { type: "Polygon", coordinates: [[[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]] },
+      geometry_b: { type: "Point", coordinates: [0.5, 0.5] },
+    },
+    expectations: {
+      geometry_a: { type: ["Polygon", "MultiPolygon"] },
+      geometry_b: { type: ["Polygon", "MultiPolygon"] },
+    },
+  },
 ];
 
-for (const { label, args } of calls) {
-  const result = guardToolCall(args);
+for (const { label, args, expectations } of calls) {
+  const result = guardToolCall(args, expectations);
   console.log(`\n=== ${label} ===`);
   console.log(result.ok ? "PASSED" : "REJECTED");
   for (const issue of result.issues) {

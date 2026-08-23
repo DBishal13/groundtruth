@@ -1,4 +1,4 @@
-# Spatial tool-executing agents
+# Groundtruth
 
 > Deterministic CRS resolution, GeoJSON validation, and topology sanity checks wrapped around every LLM tool call — the "LangGraph for GIS" nobody's shipped as an open, model-agnostic layer.
 
@@ -36,22 +36,24 @@ This is a thin working prototype, not a validated product yet. `VALIDATION.md` i
 
 - `src/core/crs.ts` — resolves the CRS strings an LLM actually writes ("WGS84", "Web Mercator", "British National Grid", "UTM zone 33N", `EPSG:4326`) to canonical EPSG codes and proj4 defs. Fails closed on anything it can't confidently resolve, rather than guessing.
 - `src/core/geojson.ts` — structural GeoJSON validation (unclosed rings, malformed positions, wrong nesting) plus topology sanity checks aimed at the documented LLM failure modes: swapped lat/lng axes, self-intersecting polygons, zero-area/degenerate rings, mishandled antimeridian crossings.
-- `src/core/guard.ts` — `guardToolCall(args)`, the library entry point: scans a tool call's arguments for geometry- and CRS-shaped fields, validates them, and returns structured issues (with a `fix` string per issue) suitable for feeding straight back to the calling model.
-- `src/mcp/server.ts` — an MCP server exposing `validate_geometry`, `buffer_geometry`, `reproject_geometry`, and `intersect_geometries`, each wrapped in `guardToolCall` so bad input is rejected with an explanation before any GIS work runs.
+- `src/core/guard.ts` — `guardToolCall(args, expectations?)`, the library entry point: scans a tool call's arguments for geometry- and CRS-shaped fields, validates them, and returns structured issues (with a `fix` string per issue) suitable for feeding straight back to the calling model. `expectations` lets a caller declare which geometry type an argument must be (e.g. `{ geometry: { type: "Polygon" } }`), catching the #1 GeoBenchX failure mode — a centroid passed where the actual boundary was needed — before it reaches the GIS code.
+- `src/mcp/server.ts` — an MCP server exposing `validate_geometry`, `buffer_geometry`, `reproject_geometry`, and `intersect_geometries`, each wrapped in `guardToolCall` (with type expectations where the operation demands them, like `intersect_geometries` requiring polygons on both sides) so bad input is rejected with an explanation before any GIS work runs.
+- `src/cli.ts` — a standalone `groundtruth validate` command for sanity-checking a `.geojson` file outside of any agent loop — useful for a quick demo or a CI check.
 
 ### Run it
 
 ```bash
 npm install
-npm test          # unit tests for CRS resolution, structural validation, topology checks
-npm run demo       # runs guardToolCall over a handful of clean and deliberately broken tool calls
-npm run dev:mcp     # starts the MCP server on stdio — point an MCP client (e.g. Claude Desktop/Code) at it
+npm test                                   # unit tests for CRS resolution, structural validation, topology, and type checks
+npm run demo                               # runs guardToolCall over a handful of clean and deliberately broken tool calls
+npm run dev:mcp                            # starts the MCP server on stdio — point an MCP client (e.g. Claude Desktop/Code) at it
+npm run cli -- validate parcel.geojson     # validate a file directly; add --type Polygon to assert the expected shape
 ```
 
 ### Use as a library
 
 ```ts
-import { guardToolCall } from "spatial-tool-guard";
+import { guardToolCall } from "groundtruth";
 
 const result = guardToolCall({
   geometry: { type: "Point", coordinates: [37.77, -122.42] }, // lat/lng swapped
@@ -59,4 +61,15 @@ const result = guardToolCall({
 // result.ok === false
 // result.issues[0].code === "lat_out_of_range"
 // result.issues[0].fix === "GeoJSON positions are always [longitude, latitude]. ..."
+
+// Assert the geometry type a tool actually needs, e.g. before an intersect:
+const intersectArgs = guardToolCall(
+  { geometry_a, geometry_b },
+  {
+    geometry_a: { type: ["Polygon", "MultiPolygon"] },
+    geometry_b: { type: ["Polygon", "MultiPolygon"] },
+  },
+);
+// Rejects a centroid passed in place of the polygon it summarizes, with an
+// explicit fix instruction instead of a downstream crash or silent no-op.
 ```

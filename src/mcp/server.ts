@@ -5,7 +5,7 @@ import { z } from "zod";
 import { guardToolCall } from "../core/guard.js";
 import { bufferGeometry, intersectGeometries, reprojectGeometry } from "../tools/geo-tools.js";
 import type { Geometry } from "geojson";
-import type { Issue } from "../core/types.js";
+import type { FieldExpectation, Issue } from "../core/types.js";
 
 const GeometrySchema = z.record(z.any()).describe("A GeoJSON Geometry object");
 
@@ -15,8 +15,8 @@ function issuesToText(issues: Issue[]): string {
     .join("\n");
 }
 
-function guardOrFail(args: Record<string, unknown>) {
-  const result = guardToolCall(args);
+function guardOrFail(args: Record<string, unknown>, expectations?: Record<string, FieldExpectation>) {
+  const result = guardToolCall(args, expectations);
   if (!result.ok) {
     return {
       content: [
@@ -32,16 +32,24 @@ function guardOrFail(args: Record<string, unknown>) {
 }
 
 const server = new McpServer({
-  name: "spatial-tool-guard",
+  name: "groundtruth",
   version: "0.1.0",
 });
 
+const GEOJSON_TYPE_ENUM = [
+  "Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon", "GeometryCollection",
+] as const;
+
 server.tool(
   "validate_geometry",
-  "Validate a GeoJSON geometry for structural correctness and topology sanity (self-intersections, degenerate/zero-area rings, swapped lat/lng axes, antimeridian issues) before using it in any other tool.",
-  { geometry: GeometrySchema },
-  async ({ geometry }) => {
-    const result = guardToolCall({ geometry });
+  "Validate a GeoJSON geometry for structural correctness and topology sanity (self-intersections, degenerate/zero-area rings, swapped lat/lng axes, antimeridian issues) before using it in any other tool. Optionally assert the geometry type you expect (e.g. Polygon) to catch a centroid passed where an area was needed.",
+  {
+    geometry: GeometrySchema,
+    expected_type: z.enum(GEOJSON_TYPE_ENUM).optional().describe("The geometry type this should be, if known"),
+  },
+  async ({ geometry, expected_type }) => {
+    const expectations = expected_type ? { geometry: { type: expected_type } } : undefined;
+    const result = guardToolCall({ geometry }, expectations);
     const summary = result.ok
       ? "Geometry is valid."
       : "Geometry has problems:";
@@ -87,10 +95,14 @@ server.tool(
 
 server.tool(
   "intersect_geometries",
-  "Compute the geometric intersection of two GeoJSON polygons. Both are validated before intersecting.",
+  "Compute the geometric intersection of two GeoJSON polygons. Both are validated before intersecting, including that they're actually polygons — not points or lines.",
   { geometry_a: GeometrySchema, geometry_b: GeometrySchema },
   async ({ geometry_a, geometry_b }) => {
-    const failed = guardOrFail({ geometry_a, geometry_b });
+    const expectations: Record<string, FieldExpectation> = {
+      geometry_a: { type: ["Polygon", "MultiPolygon"] },
+      geometry_b: { type: ["Polygon", "MultiPolygon"] },
+    };
+    const failed = guardOrFail({ geometry_a, geometry_b }, expectations);
     if (failed) return failed;
     const result = intersectGeometries(geometry_a as unknown as Geometry, geometry_b as unknown as Geometry);
     return {
@@ -102,10 +114,10 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("spatial-tool-guard MCP server running on stdio");
+  console.error("groundtruth MCP server running on stdio");
 }
 
 main().catch((err) => {
-  console.error("Fatal error starting spatial-tool-guard MCP server:", err);
+  console.error("Fatal error starting groundtruth MCP server:", err);
   process.exit(1);
 });

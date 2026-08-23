@@ -1,4 +1,4 @@
-# Spatial tool-executing agents — agent context
+# Groundtruth — agent context
 
 ## Product purpose
 Deterministic CRS resolution, GeoJSON validation, and topology sanity checks wrapped around every LLM tool call — the "LangGraph for GIS" nobody's shipped as an open, model-agnostic layer.

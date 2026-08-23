@@ -1,5 +1,14 @@
 export type IssueSeverity = "error" | "warning";
 
+export type GeoJSONType =
+  | "Point" | "MultiPoint" | "LineString" | "MultiLineString"
+  | "Polygon" | "MultiPolygon" | "GeometryCollection";
+
+/** Constrains which geometry type(s) a tool call argument is allowed to be. */
+export interface FieldExpectation {
+  type: GeoJSONType | GeoJSONType[];
+}
+
 export interface Issue {
   severity: IssueSeverity;
   code: string;

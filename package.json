@@ -1,18 +1,20 @@
 {
-  "name": "spatial-tool-guard",
+  "name": "groundtruth",
   "version": "0.1.0",
   "description": "Deterministic CRS resolution, GeoJSON validation, and topology sanity checks wrapped around LLM tool calls.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "spatial-tool-guard-mcp": "dist/mcp/server.js"
+    "groundtruth": "dist/cli.js",
+    "groundtruth-mcp": "dist/mcp/server.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev:mcp": "tsx src/mcp/server.ts",
     "test": "vitest run",
-    "demo": "tsx examples/demo.ts"
+    "demo": "tsx examples/demo.ts",
+    "cli": "tsx src/cli.ts"
   },
   "files": [
     "dist"
