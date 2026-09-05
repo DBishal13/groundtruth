@@ -1,0 +1,16 @@
+{
+  "type": "Feature",
+  "properties": { "name": "Test Parcel" },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [37.77, -122.42],
+        [37.78, -122.42],
+        [37.78, -122.41],
+        [37.77, -122.41],
+        [37.77, -122.42]
+      ]
+    ]
+  }
+}
