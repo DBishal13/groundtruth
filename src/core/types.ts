@@ -1,5 +1,8 @@
 export type IssueSeverity = "error" | "warning";
 
+/** The wire format a geometry-shaped input was detected in. */
+export type GeometryFormat = "geojson" | "wkt" | "wkb" | "kml" | "gml";
+
 export type GeoJSONType =
   | "Point" | "MultiPoint" | "LineString" | "MultiLineString"
   | "Polygon" | "MultiPolygon" | "GeometryCollection";
@@ -19,8 +22,12 @@ export interface Issue {
 
 export interface GuardResult<T = unknown> {
   ok: boolean;
-  /** Geometry normalized to WGS84 / EPSG:4326 when a CRS could be resolved. */
+  /** Geometry normalized to GeoJSON, regardless of the wire format it arrived in. */
   normalized?: T;
   resolvedCRS?: { input: string; epsg: number; name: string } | null;
+  /** Wire format the geometry was detected in (guardGeometry only). */
+  format?: GeometryFormat;
+  /** Per-argument wire formats detected (guardToolCall only). */
+  formats?: Record<string, GeometryFormat>;
   issues: Issue[];
 }

@@ -1,20 +1,7 @@
 import { resolveCRS } from "./crs.js";
 import { checkTopology, validateStructure, type AnyGeoJSON } from "./geojson.js";
-import type { FieldExpectation, GeoJSONType, GuardResult, Issue } from "./types.js";
-
-const GEOJSON_TYPES = new Set([
-  "Point", "MultiPoint", "LineString", "MultiLineString",
-  "Polygon", "MultiPolygon", "GeometryCollection", "Feature", "FeatureCollection",
-]);
-
-function looksLikeGeoJSON(value: unknown): value is AnyGeoJSON {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Record<string, unknown>).type === "string" &&
-    GEOJSON_TYPES.has((value as Record<string, unknown>).type as string)
-  );
-}
+import { isMalformed, parseGeometryInput, type MalformedGeometry, type ParsedGeometry } from "./formats.js";
+import type { FieldExpectation, GeoJSONType, GeometryFormat, GuardResult, Issue } from "./types.js";
 
 /** The GeoJSON geometry type of a Geometry or Feature, unwrapping Feature. */
 function geometryTypeOf(value: AnyGeoJSON): string | null {
@@ -42,21 +29,68 @@ function checkTypeExpectation(value: AnyGeoJSON, expectation: FieldExpectation):
   return [];
 }
 
+const MALFORMED_FIXES: Record<GeometryFormat, string> = {
+  geojson: `Check the GeoJSON structure — a Geometry, Feature, or FeatureCollection with well-formed "coordinates".`,
+  wkt: `Check the WKT syntax — e.g. "POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))", with rings closed and parentheses balanced.`,
+  wkb: `Check the WKB/EWKB hex encoding is complete and correctly byte-ordered.`,
+  kml: `Check the KML contains a <Placemark> with a <Point>, <LineString>, or <Polygon> geometry, and that <coordinates> are well-formed.`,
+  gml: `Check the GML contains a recognized geometry element (<Point>/<LineString>/<Polygon>/Multi*) with a well-formed <pos>, <posList>, or <coordinates>.`,
+};
+
+function malformedIssue(parsed: MalformedGeometry): Issue {
+  return {
+    severity: "error",
+    code: `malformed_${parsed.format}`,
+    message: `Could not parse as ${parsed.format.toUpperCase()}: ${parsed.error}`,
+    fix: MALFORMED_FIXES[parsed.format],
+  };
+}
+
+function sridWarning(srid: number): Issue {
+  return {
+    severity: "warning",
+    code: "non_geographic_srid",
+    message: `Geometry declares SRID ${srid}, not 4326 (WGS84). Coordinate-range and topology checks assume geographic degrees and may be unreliable if this is a projected CRS.`,
+    fix: `If SRID ${srid} is a projected CRS, reproject to EPSG:4326 first, or confirm the coordinates are actually longitude/latitude in degrees.`,
+  };
+}
+
 /**
- * Validate a single geometry: structural well-formedness, then (only if
- * structurally sound) topology sanity checks and an optional type check.
+ * Validate a single geometry, regardless of wire format (GeoJSON, WKT/EWKT,
+ * or hex WKB/EWKB): structural well-formedness, then (only if structurally
+ * sound) topology sanity checks and an optional type check.
  */
-export function guardGeometry(geometry: unknown, expectation?: FieldExpectation): GuardResult<AnyGeoJSON> {
-  const structural = validateStructure(geometry);
-  if (structural.some((i) => i.severity === "error")) {
-    return { ok: false, issues: structural };
+export function guardGeometry(input: unknown, expectation?: FieldExpectation): GuardResult<AnyGeoJSON> {
+  const parsed = parseGeometryInput(input);
+
+  // Not recognized as any known geometry wire format — fall back to
+  // structural validation, which produces a clear "not an object" /
+  // "invalid type" error for whatever this actually is.
+  if (!parsed) {
+    return { ok: false, issues: validateStructure(input) };
   }
-  const topology = checkTopology(geometry as AnyGeoJSON);
-  const typeCheck = expectation ? checkTypeExpectation(geometry as AnyGeoJSON, expectation) : [];
-  const issues = [...structural, ...topology, ...typeCheck];
+
+  if (isMalformed(parsed)) {
+    return { ok: false, format: parsed.format, issues: [malformedIssue(parsed)] };
+  }
+
+  return guardParsedGeometry(parsed, expectation);
+}
+
+function guardParsedGeometry(parsed: ParsedGeometry, expectation?: FieldExpectation): GuardResult<AnyGeoJSON> {
+  const { geojson, format, srid } = parsed;
+  const structural = validateStructure(geojson);
+  if (structural.some((i) => i.severity === "error")) {
+    return { ok: false, format, issues: structural };
+  }
+  const topology = checkTopology(geojson);
+  const typeCheck = expectation ? checkTypeExpectation(geojson, expectation) : [];
+  const sridIssue = srid !== undefined && srid !== 4326 ? [sridWarning(srid)] : [];
+  const issues = [...structural, ...topology, ...typeCheck, ...sridIssue];
   return {
     ok: !issues.some((i) => i.severity === "error"),
-    normalized: geometry as AnyGeoJSON,
+    normalized: geojson,
+    format,
     issues,
   };
 }
@@ -81,15 +115,25 @@ export function guardToolCall(
 ): GuardResult<Record<string, unknown>> {
   const issues: Issue[] = [];
   const normalized: Record<string, unknown> = { ...args };
+  const formats: Record<string, GeometryFormat> = {};
 
   for (const [key, value] of Object.entries(args)) {
-    if (looksLikeGeoJSON(value)) {
-      const result = guardGeometry(value, expectations?.[key]);
-      for (const issue of result.issues) {
-        issues.push({ ...issue, message: `${key}: ${issue.message}` });
-      }
-      if (result.ok && result.normalized) normalized[key] = result.normalized;
+    const parsed = parseGeometryInput(value);
+    if (!parsed) continue;
+
+    if (isMalformed(parsed)) {
+      formats[key] = parsed.format;
+      const issue = malformedIssue(parsed);
+      issues.push({ ...issue, message: `${key}: ${issue.message}` });
+      continue;
     }
+
+    formats[key] = parsed.format;
+    const result = guardParsedGeometry(parsed, expectations?.[key]);
+    for (const issue of result.issues) {
+      issues.push({ ...issue, message: `${key}: ${issue.message}` });
+    }
+    if (result.normalized) normalized[key] = result.normalized;
   }
 
   for (const key of CRS_KEYS) {
@@ -110,6 +154,7 @@ export function guardToolCall(
   return {
     ok: !issues.some((i) => i.severity === "error"),
     normalized,
+    formats,
     issues,
   };
 }

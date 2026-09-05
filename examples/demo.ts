@@ -56,7 +56,47 @@ const calls: { label: string; args: Record<string, unknown>; expectations?: Reco
       geometry_b: { type: ["Polygon", "MultiPolygon"] },
     },
   },
+  {
+    label: "same buffer call, but the model emitted WKT instead of GeoJSON",
+    args: {
+      geometry: "POINT(-122.42 37.77)",
+      distance_km: 5,
+    },
+  },
+  {
+    label: "malformed WKT (unclosed parenthesis)",
+    args: {
+      geometry: "POLYGON((0 0, 0 1, 1 1, 1 0)",
+    },
+  },
+  {
+    label: "EWKT with a non-WGS84 SRID (projected coordinates, not degrees)",
+    args: {
+      geometry: "SRID=3857;POINT(-13627732 4546985)",
+    },
+  },
+  {
+    label: "inline KML fragment instead of GeoJSON",
+    args: {
+      geometry:
+        '<kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><Point><coordinates>-122.42,37.77</coordinates></Point></Placemark></kml>',
+    },
+  },
+  {
+    label: "self-intersecting polygon expressed as GML",
+    args: {
+      geometry:
+        '<gml:Polygon xmlns:gml="http://www.opengis.net/gml"><gml:exterior><gml:LinearRing>' +
+        "<gml:posList>0 0 1 1 1 0 0 1 0 0</gml:posList>" +
+        "</gml:LinearRing></gml:exterior></gml:Polygon>",
+    },
+  },
 ];
+
+// Shapefile and GeoPackage can't be embedded inline in a tool call the way
+// WKT/KML/GML can (multi-file / binary formats) — validate those with
+// `groundtruth validate parcels.shp` or `guardGeometryFile()` instead,
+// which check every feature in the file, not just one argument.
 
 for (const { label, args, expectations } of calls) {
   const result = guardToolCall(args, expectations);
