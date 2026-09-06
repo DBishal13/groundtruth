@@ -37,7 +37,7 @@ This is a thin working prototype, not a validated product yet. `VALIDATION.md` i
 Real, reproducible numbers from `npm run bench` — full methodology, caveats, and known limitations in [BENCHMARKS.md](BENCHMARKS.md):
 
 - **13/13** documented failure modes correctly detected, **0** false positives across the clean corpus
-- **6 wire formats** validated end to end: GeoJSON, WKT/EWKT, WKB/EWKB, KML, GML, Shapefile, GeoPackage
+- **7 wire formats** validated end to end: GeoJSON, WKT/EWKT, WKB/EWKB, KML, GML, Shapefile, GeoPackage
 - **25,000-560,000 validations/sec** depending on format (GeoJSON/WKT/WKB in-process; KML/GML pay for an XML parse)
 - Building the benchmark corpus itself surfaced and fixed one real gap: a geometry-shaped tool-call argument with a misspelled/miscased `type` (e.g. `"point"`, `"Polgyon"`) was previously skipped by the guard entirely instead of being flagged — see BENCHMARKS.md for the full writeup
 
