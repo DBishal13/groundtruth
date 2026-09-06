@@ -22,6 +22,16 @@ function flattenPositions(coords: unknown, out: Position[] = []): Position[] {
   return out;
 }
 
+/** Every ring in a Polygon/MultiPolygon, tagged with whether it's a hole (not the first ring of its polygon). */
+function ringsOf(g: Polygon | MultiPolygon): { ring: Position[]; isHole: boolean }[] {
+  const polygons = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  const rings: { ring: Position[]; isHole: boolean }[] = [];
+  for (const poly of polygons) {
+    poly.forEach((ring, i) => rings.push({ ring, isHole: i > 0 }));
+  }
+  return rings;
+}
+
 /**
  * Structural validation: is this actually well-formed GeoJSON, independent
  * of whether the shape is geographically sane. Catches the "LLM emitted
@@ -228,6 +238,21 @@ export function checkTopology(input: AnyGeoJSON): Issue[] {
             "zero_area",
             "Polygon has zero area (degenerate — likely collinear or duplicate points).",
             "Check that the ring's positions actually enclose a region and aren't all on one line or the same point.",
+          ),
+        );
+      }
+      // Exterior rings should be counter-clockwise (booleanClockwise === false);
+      // holes should be clockwise (=== true). Wrong whenever it's the opposite.
+      const wrongWinding = ringsOf(g).filter(
+        ({ ring, isHole }) => turf.booleanClockwise(ring) !== isHole,
+      ).length;
+      if (wrongWinding > 0) {
+        issues.push(
+          issue(
+            "warning",
+            "polygon_winding_order",
+            `${wrongWinding} ring(s) don't follow the right-hand rule (exterior rings should be counter-clockwise, holes clockwise, per RFC 7946).`,
+            "Reverse the affected ring's coordinate order. Most consumers (including this library's own checks) tolerate either winding, but some strict renderers or GIS engines assume the right-hand rule.",
           ),
         );
       }

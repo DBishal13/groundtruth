@@ -74,11 +74,32 @@ describe("checkTopology", () => {
     expect(issues.some((i) => i.code === "possible_antimeridian")).toBe(true);
   });
 
-  it("passes a clean, valid polygon with no issues", () => {
+  it("passes a clean, valid, correctly-wound polygon with no issues", () => {
     const square = {
       type: "Polygon",
-      coordinates: [[[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]],
+      coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]], // counter-clockwise
     };
     expect(checkTopology(square)).toHaveLength(0);
+  });
+
+  it("warns on a clockwise-wound exterior ring", () => {
+    const clockwiseSquare = {
+      type: "Polygon",
+      coordinates: [[[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]], // clockwise
+    };
+    const issues = checkTopology(clockwiseSquare);
+    expect(issues.some((i) => i.code === "polygon_winding_order" && i.severity === "warning")).toBe(true);
+  });
+
+  it("does not warn on a hole with correct (clockwise) winding", () => {
+    const withHole = {
+      type: "Polygon",
+      coordinates: [
+        [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]], // exterior, CCW
+        [[1, 1], [1, 2], [2, 2], [2, 1], [1, 1]], // hole, CW
+      ],
+    };
+    const issues = checkTopology(withHole);
+    expect(issues.some((i) => i.code === "polygon_winding_order")).toBe(false);
   });
 });
