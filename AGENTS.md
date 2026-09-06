@@ -4,7 +4,7 @@
 Deterministic CRS resolution, GeoJSON validation, and topology sanity checks wrapped around every LLM tool call — the "LangGraph for GIS" nobody's shipped as an open, model-agnostic layer.
 
 ## MVP scope
-Read `feasibility` in README.md for the realistic time-to-MVP estimate before committing to scope. Build the smallest version that lets you show a real user something concrete — favor an ugly working prototype over a polished mock.
+Read "Feasibility & time-to-MVP" in PITCH.md for the realistic time-to-MVP estimate before committing to scope. Build the smallest version that lets you show a real user something concrete — favor an ugly working prototype over a polished mock.
 
 ## Product rules
 - Do not build past what's needed to run the next discovery call or validate the next assumption.

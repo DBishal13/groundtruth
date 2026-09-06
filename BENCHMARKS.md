@@ -71,7 +71,7 @@ XML formats (KML/GML) are ~5-6x slower than GeoJSON/WKT because each call pays f
 | Shapefile (.shp) | ✅ (file only) | — |
 | GeoPackage (.gpkg) | ✅ (file only) | — |
 
-Most comparable open-source "GIS + LLM" guard/validation layers found during this project's own research handle GeoJSON only; this is the specific gap the project exists to close (see the README's "Why this matters" for the competitive landscape this claim is measured against).
+Most comparable open-source "GIS + LLM" guard/validation layers found during this project's own research handle GeoJSON only; this is the specific gap the project exists to close (see PITCH.md's "Why this matters" for the competitive landscape this claim is measured against).
 
 ## Known limitations (found and kept honest, not smoothed over)
 

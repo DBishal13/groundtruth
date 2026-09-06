@@ -1,100 +1,91 @@
 # Groundtruth
 
-> **LangGraph for GIS** — an open, model-agnostic validation layer that catches an LLM's bad CRS, GeoJSON, and topology before it reaches your GIS pipeline, across GeoJSON, WKT/WKB, KML/GML, Shapefile, and GeoPackage. Nobody's shipped this as portable infrastructure yet; every incumbent bakes it into their own walled platform instead.
+> **LangGraph for GIS** — an open, model-agnostic validation layer that catches an LLM's bad CRS, geometry, and topology before it reaches your GIS pipeline, across GeoJSON, WKT/WKB, KML/GML, Shapefile, and GeoPackage.
 
-**Domain:** Agentic AI · **Tier:** 1 (build now) · **Composite score:** 3.4/5
+Status: early working prototype (v0.1.0), not a validated product — see [PITCH.md](PITCH.md) for the business case and [VALIDATION.md](VALIDATION.md) for the decision gate on whether to invest further.
 
-## Why this matters
-Real but closing. Esri is shipping AI Assistants into ArcGIS Online on a monthly cadence through 2026; Google Research's "Geospatial Reasoning" orchestrates Gemini across multiple Earth foundation models but remains a trusted-tester preview; CARTO ships production AI agents over customer warehouses. All three are building this inside their own walled platforms, not as a portable, model-agnostic validation layer. Independent benchmarks confirm the problem is unsolved: GeoBenchX found even the best model (Claude Sonnet 3.5) hit only 53% success on solvable multi-step geospatial tasks, routinely confusing centroids for polygons and using stale geographic facts.
+## Features
 
-## Market signal
-No dedicated market figure exists. Broad AI-agent market estimates range so widely between research firms ($43B by 2030 to $295B by 2035) that none should be treated as reliable for this narrow slice.
-
-## Feasibility & time-to-MVP
-The validation primitives are solved, mature libraries (Shapely/GEOS, pyproj) — the work is wiring LLM tool-call outputs to them with graceful failure recovery across multi-stage GDAL/PDAL pipelines. A schema-and-CRS wrapper ships in weeks; a full multi-stage orchestrator with topology sanity and rollback is a 3–6 month build for a strong team, roughly matching where academic prototypes (GISclaw) already sit.
-
-## Existing players to differentiate from
-Esri ArcGIS AI Assistants, Google Geospatial Reasoning (preview), CARTO AI Agents (MCP-based), early open-source GDAL MCP servers. Felt raised $15M (Jul 2025) for a natural-language GIS builder, a vertical app rather than an infra layer.
-
-## Core risk to de-risk first
-Incumbents have every incentive to keep this feature captive to their own platform rather than license it out, and GIS's fragmented CRS/format conventions make a truly generic validator harder to keep general than it first appears. The window to establish an open standard before Esri/Google close the gap natively is real but narrowing.
-
-## Scoring snapshot
-
-| Dimension | Score |
-|---|---|
-| Whitespace | 3/5 |
-| Market signal | 3/5 |
-| Feasibility | 4/5 |
-| Capital efficiency | 4/5 |
-| Buyer readiness | 3/5 |
-
-## Status
-This is a thin working prototype, not a validated product yet. `VALIDATION.md` is still the decision gate for whether to invest further.
-
-## Results
-
-Real, reproducible numbers from `npm run bench` — full methodology, caveats, and known limitations in [BENCHMARKS.md](BENCHMARKS.md):
-
-- **13/13** documented failure modes correctly detected, **0** false positives across the clean corpus
-- **7 wire formats** validated end to end: GeoJSON, WKT/EWKT, WKB/EWKB, KML, GML, Shapefile, GeoPackage
-- **25,000-560,000 validations/sec** depending on format (GeoJSON/WKT/WKB in-process; KML/GML pay for an XML parse)
-- Building the benchmark corpus itself surfaced and fixed one real gap: a geometry-shaped tool-call argument with a misspelled/miscased `type` (e.g. `"point"`, `"Polgyon"`) was previously skipped by the guard entirely instead of being flagged — see BENCHMARKS.md for the full writeup
+- **Multi-format geometry detection and normalization** — GeoJSON, WKT/EWKT, hex WKB/EWKB, inline KML/GML fragments (as tool-call arguments), plus whole Shapefile (`.shp`) and GeoPackage (`.gpkg`) files. Everything normalizes to GeoJSON before it reaches validation or a GIS library.
+- **Structural + topology validation** aimed at documented LLM failure modes: swapped lat/lng axes, self-intersecting polygons, zero-area/degenerate rings, mishandled antimeridian crossings, wrong winding order (RFC 7946 right-hand rule), and a centroid passed where an actual polygon boundary was needed.
+- **CRS resolution** for the free-form strings an LLM actually writes ("WGS84", "Web Mercator", "British National Grid", "UTM zone 33N", `EPSG:4326`) — fails closed on anything it can't confidently resolve rather than guessing.
+- **An MCP server** exposing 5 tools (`validate_geometry`, `validate_geometry_file`, `buffer_geometry`, `reproject_geometry`, `intersect_geometries`), each wrapped in the guard so bad input is rejected with an explanation before any GIS work runs.
+- **A CLI** (`groundtruth validate <file>`) for validating a file outside any agent loop — CI checks, quick sanity checks, whatever.
+- **A library API** (`guardToolCall`, `guardGeometry`, `guardGeometryFile`) for embedding the guard directly in your own agent or tool-calling loop.
+- **A real benchmark suite** (`npm run bench`) measuring detection rate against a labeled corpus and raw throughput per format — see [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Architecture
 
-Two paths through the same validation core, depending on whether the geometry arrives inline in a tool call or lives in a file the model can only reference by path:
+Two paths through the same validation core, depending on whether the geometry arrives inline in a tool call or lives in a file the model can only reference by path.
+
+**Path 1 — inline tool-call argument:**
 
 ```mermaid
 flowchart TD
-    subgraph Inline["Inline tool-call argument"]
-        A["LLM tool call\ne.g. buffer_geometry(geometry, distance_km)"] --> B["guardToolCall(args, expectations?)"]
-        B --> C["formats.ts\ndetect wire format:\nGeoJSON / WKT/EWKT / hex WKB/EWKB / KML / GML"]
-        C --> D["geojson.ts\nstructural + topology checks\n(self-intersection, zero-area, winding, axis range)"]
-        C --> E["crs.ts\nresolve CRS string to EPSG + proj4 def"]
-        D --> F{ok?}
-        E --> F
-        F -- "no" --> G["Rejected — issues + fix strings\nreturned to the calling model"]
-        F -- "yes" --> H["normalized args\n(always GeoJSON, regardless of input format)"]
-        H --> I["wrapped GIS tool runs\n(turf: buffer / reproject / intersect)"]
-    end
-
-    subgraph FileBased["File-based (can't be embedded inline)"]
-        J["validate_geometry_file(file_path)"] --> K["files.ts\ndetect format by extension/content"]
-        K --> L["Shapefile (.shp)\nvia shapefile"]
-        K --> M["GeoPackage (.gpkg)\nsql.js + strip GPB header + wkx"]
-        K --> N["KML / GML / GeoJSON / WKT\nfull-document parse"]
-        L --> O["one feature list"]
-        M --> O
-        N --> O
-        O --> P["guardGeometryFile:\nrun the same guard per feature"]
-        P --> Q["per-feature report\n'N/M features valid' + issues"]
-    end
+    A["LLM tool call\ne.g. buffer_geometry(geometry, distance_km)"] --> B["guardToolCall(args, expectations?)"]
+    B --> C["formats.ts\ndetect wire format:\nGeoJSON / WKT/EWKT / hex WKB/EWKB / KML / GML"]
+    C --> D["geojson.ts\nstructural + topology checks\n(self-intersection, zero-area, winding, axis range)"]
+    C --> E["crs.ts\nresolve CRS string to EPSG + proj4 def"]
+    D --> F{ok?}
+    E --> F
+    F -- "no" --> G["Rejected — issues + fix strings\nreturned to the calling model"]
+    F -- "yes" --> H["normalized args\n(always GeoJSON, regardless of input format)"]
+    H --> I["wrapped GIS tool runs\n(turf: buffer / reproject / intersect)"]
 ```
 
-## Prototype: what's here
+**Path 2 — file-based (can't be embedded inline):**
 
-- `src/core/formats.ts` — detects and parses a single geometry-shaped input regardless of wire format: native GeoJSON, WKT/EWKT strings (`"POLYGON((...))"`, `"SRID=4326;POINT(...)"`), hex-encoded WKB/EWKB, or an inline KML/GML XML fragment. Everything normalizes to GeoJSON before it reaches validation or the GIS layer. WKT/KML/GML detection is confident (a matched keyword or tag means the caller meant this to be a geometry, so a parse failure is a reported `malformed_*` error); WKB detection is conservative (a hex-looking string is only treated as WKB if it actually parses as one, so an unrelated hex id or hash is left alone).
-- `src/core/xml-geometry.ts` — shared KML/GML geometry extraction used by both the inline path above and the file-based path below. Scope is deliberately bounded to Point/LineString/Polygon and their Multi* variants (no curves, no surfaces with interpolation); GML axis order is read as (longitude, latitude), the de-facto convention for most real-world WFS/GML output — strict EPSG:4326 (latitude, longitude) axis order is a documented limitation, not silently guessed.
-- `src/core/files.ts` — reads a geometry **file** of any supported format (GeoJSON, WKT text, KML, GML, Shapefile `.shp`, or GeoPackage `.gpkg`) and yields every feature it contains, since Shapefile/GeoPackage can't be embedded inline in a tool call the way WKT/KML can. GeoPackage support is hand-rolled on `sql.js` (pure WASM SQLite, no native build step): it reads `gpkg_geometry_columns` to find the geometry table(s), then strips the small GeoPackageBinary header and hands the remaining WKB to the same parser used for inline WKB. `guardGeometryFile(path, expectations?)` validates every feature the same way `guardToolCall` validates one, returning per-feature issues.
-- `src/core/crs.ts` — resolves the CRS strings an LLM actually writes ("WGS84", "Web Mercator", "British National Grid", "UTM zone 33N", `EPSG:4326`) to canonical EPSG codes and proj4 defs. Fails closed on anything it can't confidently resolve, rather than guessing.
-- `src/core/geojson.ts` — structural GeoJSON validation (unclosed rings, malformed positions, wrong nesting) plus topology sanity checks aimed at the documented LLM failure modes: swapped lat/lng axes, self-intersecting polygons, zero-area/degenerate rings, mishandled antimeridian crossings, and (as a warning, not an error, since most consumers tolerate either) exterior/hole rings that don't follow the RFC 7946 right-hand-rule winding order.
-- `src/core/guard.ts` — `guardToolCall(args, expectations?)`, the library entry point: scans a tool call's arguments for geometry- and CRS-shaped fields in any inline-able format, validates them, and returns structured issues (with a `fix` string per issue) plus `normalized` args with every geometry converted to GeoJSON — so a wrapped tool never has to know whether the caller sent GeoJSON, WKT, WKB, or KML/GML. `expectations` lets a caller declare which geometry type an argument must be (e.g. `{ geometry: { type: "Polygon" } }`), catching the #1 GeoBenchX failure mode — a centroid passed where the actual boundary was needed — before it reaches the GIS code. Also flags EWKT/EWKB carrying a non-WGS84 SRID as a warning, since the geographic sanity checks assume degrees.
-- `src/mcp/server.ts` — an MCP server exposing `validate_geometry`, `validate_geometry_file`, `buffer_geometry`, `reproject_geometry`, and `intersect_geometries`. The inline tools accept GeoJSON, WKT/EWKT, hex WKB/EWKB, or KML/GML as a `geometry` argument; `validate_geometry_file` takes a `file_path` instead, for formats that can't be embedded inline (Shapefile, GeoPackage) or whole documents (multi-feature KML/GML). Every tool is wrapped in the guard so bad input is rejected with an explanation before any GIS work runs.
-- `src/cli.ts` — a standalone `groundtruth validate <file>` command for sanity-checking a geometry file outside of any agent loop. Format is auto-detected (by extension first, then content): `.geojson`/`.json`, `.wkt`, `.kml`, `.gml`/`.xml`, `.shp`, `.gpkg`. For a multi-feature file it reports how many of the file's features are valid and, for each invalid one, why.
+```mermaid
+flowchart TD
+    J["validate_geometry_file(file_path)"] --> K["files.ts\ndetect format by extension/content"]
+    K --> L["Shapefile (.shp)\nvia shapefile"]
+    K --> M["GeoPackage (.gpkg)\nsql.js + strip GPB header + wkx"]
+    K --> N["KML / GML / GeoJSON / WKT\nfull-document parse"]
+    L --> O["one feature list"]
+    M --> O
+    N --> O
+    O --> P["guardGeometryFile:\nrun the same guard per feature"]
+    P --> Q["per-feature report\n'N/M features valid' + issues"]
+```
 
-### Run it
+Both paths share the same structural, topology, and CRS checks — the only difference is how many features go through them at once.
+
+### Project layout
+
+- `src/core/formats.ts` — detects and parses a single geometry-shaped input regardless of wire format: native GeoJSON, WKT/EWKT strings (`"POLYGON((...))"`, `"SRID=4326;POINT(...)"`), hex-encoded WKB/EWKB, or an inline KML/GML XML fragment. WKT/KML/GML detection is confident (a matched keyword or tag means the caller meant this to be a geometry, so a parse failure is a reported `malformed_*` error); WKB detection is conservative (a hex-looking string is only treated as WKB if it actually parses as one, so an unrelated hex id or hash is left alone).
+- `src/core/xml-geometry.ts` — shared KML/GML geometry extraction used by both the inline path and the file-based path. Scope is deliberately bounded to Point/LineString/Polygon and their Multi* variants (no curves, no surfaces with interpolation); GML axis order is read as (longitude, latitude), the de-facto convention for most real-world WFS/GML output — strict EPSG:4326 (latitude, longitude) axis order is a documented limitation, not silently guessed.
+- `src/core/files.ts` — reads a geometry **file** of any supported format and yields every feature it contains, since Shapefile/GeoPackage can't be embedded inline in a tool call the way WKT/KML can. GeoPackage support is hand-rolled on `sql.js` (pure WASM SQLite, no native build step): it reads `gpkg_geometry_columns` to find the geometry table(s), then strips the small GeoPackageBinary header and hands the remaining WKB to the same parser used for inline WKB.
+- `src/core/crs.ts` — resolves free-form CRS strings to canonical EPSG codes and proj4 defs.
+- `src/core/geojson.ts` — structural GeoJSON validation plus topology sanity checks.
+- `src/core/guard.ts` — `guardToolCall(args, expectations?)`, the library entry point. `expectations` lets a caller declare which geometry type an argument must be (e.g. `{ geometry: { type: "Polygon" } }`), catching the #1 GeoBenchX failure mode — a centroid passed where the actual boundary was needed.
+- `src/mcp/server.ts` — the MCP server. Inline tools accept GeoJSON, WKT/EWKT, hex WKB/EWKB, or KML/GML as a `geometry` argument; `validate_geometry_file` takes a `file_path` instead.
+- `src/cli.ts` — the standalone CLI. Format is auto-detected (by extension first, then content): `.geojson`/`.json`, `.wkt`, `.kml`, `.gml`/`.xml`, `.shp`, `.gpkg`.
+- `bench/` — the benchmark suite; `examples/fixtures/` — a shareable good/bad corpus per format with captured real output in `RESULTS.md`.
+
+## Getting started
 
 ```bash
 npm install
 npm test                                   # unit tests for CRS resolution, structural validation, topology, and type checks
+npm run bench                              # detection-rate + throughput benchmark (see BENCHMARKS.md)
 npm run demo                               # runs guardToolCall over a handful of clean and deliberately broken tool calls
 npm run dev:mcp                            # starts the MCP server on stdio — point an MCP client (e.g. Claude Desktop/Code) at it
 npm run cli -- validate parcel.geojson     # validate a file directly; add --type Polygon to assert the expected shape
 npm run cli -- validate parcels.shp        # Shapefile, GeoPackage, KML, GML, WKT text all work the same way
 ```
 
-### Use as a library
+## Usage
+
+### As an MCP server (agent tool-call validation)
+
+```bash
+npm run build
+claude mcp add groundtruth -- node dist/mcp/server.js
+```
+
+Exposes `validate_geometry`, `validate_geometry_file`, `buffer_geometry`, `reproject_geometry`, `intersect_geometries` to any MCP-compatible client (Claude Code, Claude Desktop's local servers, etc.).
+
+### As a library (embed the guard in your own agent loop)
 
 ```ts
 import { guardToolCall } from "groundtruth";
@@ -132,3 +123,28 @@ const intersectArgs = guardToolCall(
 // Rejects a centroid passed in place of the polygon it summarizes, with an
 // explicit fix instruction instead of a downstream crash or silent no-op.
 ```
+
+### As a CLI (CI checks, quick sanity checks)
+
+```bash
+groundtruth validate parcels.gpkg
+# parcels.gpkg: 8/10 features valid (geopackage)
+#   [error] feature[3]: self_intersection: Polygon is self-intersecting at 1 point(s).
+#     fix: Simplify or rebuild the polygon so its rings don't cross themselves...
+```
+
+## Results
+
+Real, reproducible numbers from `npm run bench` — full methodology, caveats, and known limitations in [BENCHMARKS.md](BENCHMARKS.md):
+
+- **13/13** documented failure modes correctly detected, **0** false positives across the clean corpus
+- **7 wire formats** validated end to end: GeoJSON, WKT/EWKT, WKB/EWKB, KML, GML, Shapefile, GeoPackage
+- **25,000–560,000 validations/sec** depending on format (GeoJSON/WKT/WKB in-process; KML/GML pay for an XML parse)
+- Building the benchmark corpus itself surfaced and fixed one real gap: a geometry-shaped tool-call argument with a misspelled/miscased `type` (e.g. `"point"`, `"Polgyon"`) was previously skipped by the guard entirely instead of being flagged — see BENCHMARKS.md for the full writeup
+
+## Further reading
+
+- [PITCH.md](PITCH.md) — the business case: why this matters, market signal, competitive landscape, scoring
+- [VALIDATION.md](VALIDATION.md) — the validation plan and decision gate for whether to invest further
+- [BENCHMARKS.md](BENCHMARKS.md) — full benchmark methodology, real numbers, and known limitations
+- [examples/fixtures/RESULTS.md](examples/fixtures/RESULTS.md) — real `groundtruth validate` output for a good/bad pair per format

@@ -1,16 +1,16 @@
 # Validation plan — Groundtruth
 
 ## 1. Write the one-page problem brief
-Use README.md's "Why this matters" and "Core risk" sections as the seed. Rewrite it in the words of the buyer, not the researcher.
+Use PITCH.md's "Why this matters" and "Core risk" sections as the seed. Rewrite it in the words of the buyer, not the researcher.
 
 ## 2. List who to talk to
-Target roles and orgs likely to feel this pain, informed by the project's domain (**Agentic AI**) and the existing players named in README.md. Aim for 15–20 names before you start calling.
+Target roles and orgs likely to feel this pain, informed by the project's domain (**Agentic AI**) and the existing players named in PITCH.md. Aim for 15–20 names before you start calling.
 
 ## 3. Run 8–12 discovery calls
 Ask what breaks for them **today** — not whether they'd buy this. Listen for the words they use to describe the pain; that's your future landing-page copy.
 
 ## 4. Ship a minimal prototype
-Scope it to the feasibility estimate in README.md. A real, rough tool beats a slide deck or a mockup.
+Scope it to the feasibility estimate in PITCH.md. The working prototype in this repo (see [README.md](README.md)) already covers this — the remaining work is discovery calls, not more code.
 
 ## 5. Track every call
 | Contact | Date | Pain confirmed? | Budget exists? | Willing to pilot? |
