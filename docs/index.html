@@ -19,6 +19,7 @@
     --surface-card:#1E4468;
     --line:#2C5178;
     --line-soft:#203C5A;
+    --line-soft-rgb:32,60,90;
     --ink:#EAF2F5;
     --ink-muted:#9FBACC;
     --ink-faint:#6E8CA6;
@@ -41,6 +42,7 @@
     --surface-card:#D6E1E6;
     --line:#9FB7C4;
     --line-soft:#D2E0E5;
+    --line-soft-rgb:210,224,229;
     --ink:#16283A;
     --ink-muted:#48606F;
     --ink-faint:#5F7684;
@@ -65,8 +67,8 @@
     font-size:16px;
     line-height:1.55;
     background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line-soft) 39px, var(--line-soft) 40px),
-      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--line-soft) 39px, var(--line-soft) 40px);
+      repeating-linear-gradient(0deg, transparent, transparent 39.4px, rgba(var(--line-soft-rgb),.45) 39.4px, rgba(var(--line-soft-rgb),.45) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39.4px, rgba(var(--line-soft-rgb),.45) 39.4px, rgba(var(--line-soft-rgb),.45) 40px);
   }
   h1,h2,h3{font-family:var(--font-display); font-weight:600; text-wrap:balance; margin:0;}
   p{margin:0;}
@@ -272,19 +274,27 @@
   /* ---- theme toggle ---- */
   .theme-toggle{
     position:fixed; top:16px; right:16px; z-index:50;
-    font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
-    padding:8px 14px; border-radius:2px; border:1px solid var(--line);
+    width:34px; height:34px; padding:0; border-radius:2px; border:1px solid var(--line);
     background:var(--surface-raised); color:var(--ink-muted);
-    cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+    cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
   }
-  .theme-toggle:hover{color:var(--ink); border-color:var(--ink-muted);}
-  .theme-toggle .swatch{width:9px; height:9px; border-radius:50%; background:var(--accent); flex:none;}
+  .theme-toggle:hover{color:var(--accent); border-color:var(--ink-muted);}
+  .theme-toggle svg{width:17px; height:17px; display:none;}
+  .theme-toggle .icon-moon{display:block;}
+  :root[data-theme="light"] .theme-toggle .icon-moon{display:none;}
+  :root[data-theme="light"] .theme-toggle .icon-sun{display:block;}
 </style>
 </head>
 <body>
 
-<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between light and dark theme">
-  <span class="swatch"></span><span class="theme-toggle-label">Light mode</span>
+<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light theme">
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="12" cy="12" r="4.4"></circle>
+    <path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7l-2.1-2.1"></path>
+  </svg>
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"></path>
+  </svg>
 </button>
 
 <div class="hero">
@@ -588,14 +598,13 @@ const result = guardToolCall({ geometry });</pre>
 (function(){
   var root = document.documentElement;
   var btn = document.getElementById('theme-toggle');
-  var label = btn.querySelector('.theme-toggle-label');
   var saved = null;
   try { saved = localStorage.getItem('groundtruth-theme'); } catch (e) {}
   if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved);
 
   function sync() {
     var isLight = root.getAttribute('data-theme') === 'light';
-    label.textContent = isLight ? 'Dark mode' : 'Light mode';
+    btn.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
   }
   sync();
 
