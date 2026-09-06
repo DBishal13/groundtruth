@@ -9,7 +9,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  /* ---- tokens: a single committed world (survey blueprint / cyanotype) ---- */
+  /* ---- tokens: two real reprographic processes, not an inverted palette ----
+     dark  = cyanotype blueprint (Prussian-blue ground, white/cyan linework)
+     light = diazo whiteprint / "blueline" (the real successor process to
+             cyanotype — pale ground, blue linework), toggled via [data-theme] */
   :root{
     --surface:#12283F;
     --surface-raised:#1B3A5C;
@@ -21,15 +24,39 @@
     --ink-faint:#6E8CA6;
     --accent:#F2A65A;
     --accent-dim:#B87B3E;
+    --accent-rgb:242,166,90;
     --good:#3F9E7A;
+    --good-rgb:63,158,122;
     --critical:#E0703A;
+    --critical-rgb:224,112,58;
+    --neutral-tint-rgb:0,0,0;
     --font-display:'IBM Plex Serif', Georgia, 'Times New Roman', serif;
     --font-body:'IBM Plex Sans', -apple-system, Segoe UI, sans-serif;
     --font-mono:'IBM Plex Mono', 'SF Mono', Consolas, monospace;
   }
 
+  :root[data-theme="light"]{
+    --surface:#EDF2F4;
+    --surface-raised:#E1E9EC;
+    --surface-card:#D6E1E6;
+    --line:#9FB7C4;
+    --line-soft:#D2E0E5;
+    --ink:#16283A;
+    --ink-muted:#48606F;
+    --ink-faint:#5F7684;
+    --accent:#8A5119;
+    --accent-dim:#C48B4A;
+    --accent-rgb:138,81,25;
+    --good:#256B49;
+    --good-rgb:37,107,73;
+    --critical:#B03F22;
+    --critical-rgb:176,63,34;
+    --neutral-tint-rgb:22,40,58;
+  }
+
   *{box-sizing:border-box;}
   html{background:var(--surface); color-scheme:dark;}
+  html[data-theme="light"]{color-scheme:light;}
   body{
     margin:0;
     background:var(--surface);
@@ -48,12 +75,12 @@
   img{max-width:100%;}
   ::selection{background:var(--accent); color:var(--surface);}
 
-  .wrap{max-width:1080px; margin:0 auto; padding:0 32px;}
+  .wrap{max-width:1080px; margin:0 auto; padding-left:32px; padding-right:32px;}
   .kicker{
     font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
     color:var(--accent);
   }
-  section{padding:88px 0;}
+  section{padding:36px 0;}
   section + section{border-top:1px solid var(--line-soft);}
 
   /* ---- hero ---- */
@@ -86,8 +113,8 @@
     display:inline-flex; align-items:center; gap:8px;
     border:1px solid var(--accent-dim); color:var(--accent);
     font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
-    padding:6px 12px; border-radius:2px; transform:rotate(-1.5deg);
-    background:rgba(242,166,90,0.06);
+    padding:6px 12px; border-radius:2px;
+    background:rgba(var(--accent-rgb),0.08);
   }
   .stamp .dot{width:6px; height:6px; border-radius:50%; background:var(--accent);}
 
@@ -124,7 +151,7 @@
   .hero-code .c-err{color:var(--critical);}
 
   /* ---- readout strip ---- */
-  .readout{padding:52px 0; border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft); background:rgba(0,0,0,0.08);}
+  .readout{padding:52px 0; border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft); background:rgba(var(--neutral-tint-rgb),0.08);}
   .readout-grid{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0;
   }
@@ -161,8 +188,8 @@
     display:inline-block; font-family:var(--font-mono); font-size:11px; padding:2px 8px; border-radius:999px;
     letter-spacing:.03em;
   }
-  .pill.walled{background:rgba(224,112,58,0.14); color:var(--critical); border:1px solid rgba(224,112,58,.35);}
-  .pill.open{background:rgba(63,158,122,0.14); color:var(--good); border:1px solid rgba(63,158,122,.35);}
+  .pill.walled{background:rgba(var(--critical-rgb),0.14); color:var(--critical); border:1px solid rgba(var(--critical-rgb),.35);}
+  .pill.open{background:rgba(var(--good-rgb),0.14); color:var(--good); border:1px solid rgba(var(--good-rgb),.35);}
 
   /* ---- architecture ---- */
   .arch-diagram{width:100%; height:auto; display:block;}
@@ -176,14 +203,14 @@
   }
   .sample-head{
     display:flex; justify-content:space-between; align-items:center; gap:8px;
-    padding:12px 16px; border-bottom:1px solid var(--line); background:rgba(0,0,0,.12);
+    padding:12px 16px; border-bottom:1px solid var(--line); background:rgba(var(--neutral-tint-rgb),.12);
   }
   .sample-head .fmt{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint);}
   .verdict{
     font-family:var(--font-mono); font-size:11px; letter-spacing:.04em; padding:3px 8px; border-radius:2px;
   }
-  .verdict.reject{background:rgba(224,112,58,.16); color:var(--critical);}
-  .verdict.pass{background:rgba(63,158,122,.16); color:var(--good);}
+  .verdict.reject{background:rgba(var(--critical-rgb),.16); color:var(--critical);}
+  .verdict.pass{background:rgba(var(--good-rgb),.16); color:var(--good);}
   .sample-body{padding:16px; flex:1; display:flex; flex-direction:column; gap:12px;}
   .sample-input{
     font-family:var(--font-mono); font-size:12.5px; color:var(--ink-muted); background:var(--surface);
@@ -241,9 +268,24 @@
     .readout-item{border-left:none !important; padding-left:0 !important;}
     .bar-row{grid-template-columns:90px 1fr 70px; gap:8px;}
   }
+
+  /* ---- theme toggle ---- */
+  .theme-toggle{
+    position:fixed; top:16px; right:16px; z-index:50;
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    padding:8px 14px; border-radius:2px; border:1px solid var(--line);
+    background:var(--surface-raised); color:var(--ink-muted);
+    cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+  }
+  .theme-toggle:hover{color:var(--ink); border-color:var(--ink-muted);}
+  .theme-toggle .swatch{width:9px; height:9px; border-radius:50%; background:var(--accent); flex:none;}
 </style>
 </head>
 <body>
+
+<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between light and dark theme">
+  <span class="swatch"></span><span class="theme-toggle-label">Light mode</span>
+</button>
 
 <div class="hero">
   <div class="hero-crosshair c1"></div>
@@ -337,16 +379,16 @@
   <svg class="arch-diagram" viewBox="0 0 1016 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Architecture diagram showing the inline tool-call path and the file-based path both flowing through the shared guard core">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M0,0 L10,5 L0,10 z" fill="#6E8CA6"/>
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-faint)"/>
       </marker>
     </defs>
     <style>
-      .lbl{font-family:'IBM Plex Mono',monospace; font-size:11px; fill:#EAF2F5;}
-      .lbl-sm{font-family:'IBM Plex Mono',monospace; font-size:9.5px; fill:#9FBACC;}
-      .hd{font-family:'IBM Plex Sans',sans-serif; font-size:11px; fill:#6E8CA6; letter-spacing:.06em;}
-      .box{fill:#1B3A5C; stroke:#2C5178; stroke-width:1;}
-      .box-accent{fill:#1E4468; stroke:#F2A65A; stroke-width:1.2;}
-      .edge{stroke:#6E8CA6; stroke-width:1.2; fill:none; marker-end:url(#arrow);}
+      .lbl{font-family:'IBM Plex Mono',monospace; font-size:11px; fill:var(--ink);}
+      .lbl-sm{font-family:'IBM Plex Mono',monospace; font-size:9.5px; fill:var(--ink-muted);}
+      .hd{font-family:'IBM Plex Sans',sans-serif; font-size:11px; fill:var(--ink-faint); letter-spacing:.06em;}
+      .box{fill:var(--surface-raised); stroke:var(--line); stroke-width:1;}
+      .box-accent{fill:var(--surface-card); stroke:var(--accent); stroke-width:1.2;}
+      .edge{stroke:var(--ink-faint); stroke-width:1.2; fill:none; marker-end:url(#arrow);}
     </style>
 
     <!-- Inline path -->
@@ -367,17 +409,17 @@
     <text x="238" y="170" class="lbl-sm">axis range, EPSG</text>
 
     <path d="M314,178 V206" class="edge"/>
-    <path d="M300,222 l14,-16 l14,16 l-14,16 z" fill="#1E4468" stroke="#F2A65A" stroke-width="1.2"/>
-    <text x="314" y="226" text-anchor="middle" class="lbl-sm" style="fill:#F2A65A;">ok?</text>
+    <path d="M300,222 l14,-16 l14,16 l-14,16 z" fill="var(--surface-card)" stroke="var(--accent)" stroke-width="1.2"/>
+    <text x="314" y="226" text-anchor="middle" class="lbl-sm" style="fill:var(--accent);">ok?</text>
 
     <path d="M300,222 H180" class="edge"/>
     <rect x="16" y="196" width="164" height="52" rx="3" class="box"/>
-    <text x="30" y="218" class="lbl" style="fill:#E0703A;">Rejected</text>
+    <text x="30" y="218" class="lbl" style="fill:var(--critical);">Rejected</text>
     <text x="30" y="234" class="lbl-sm">issues[] + fix strings</text>
-    <text x="255" y="215" class="lbl-sm" style="fill:#E0703A;">no</text>
+    <text x="255" y="215" class="lbl-sm" style="fill:var(--critical);">no</text>
 
     <path d="M328,222 H420" class="edge"/>
-    <text x="336" y="212" class="lbl-sm" style="fill:#3F9E7A;">yes</text>
+    <text x="336" y="212" class="lbl-sm" style="fill:var(--good);">yes</text>
     <rect x="420" y="196" width="180" height="52" rx="3" class="box"/>
     <text x="434" y="218" class="lbl">normalized args</text>
     <text x="434" y="234" class="lbl-sm">always GeoJSON</text>
@@ -388,7 +430,7 @@
     <text x="670" y="234" class="lbl-sm">turf: buffer/reproject</text>
 
     <!-- divider -->
-    <line x1="0" y1="290" x2="1016" y2="290" stroke="#2C5178" stroke-dasharray="2 5"/>
+    <line x1="0" y1="290" x2="1016" y2="290" stroke="var(--line)" stroke-dasharray="2 5"/>
 
     <!-- File-based path -->
     <text x="16" y="316" class="hd">FILE-BASED (SHAPEFILE / GEOPACKAGE / KML / GML)</text>
@@ -542,6 +584,29 @@ const result = guardToolCall({ geometry });</pre>
   </div>
 </footer>
 
+<script>
+(function(){
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-toggle');
+  var label = btn.querySelector('.theme-toggle-label');
+  var saved = null;
+  try { saved = localStorage.getItem('groundtruth-theme'); } catch (e) {}
+  if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved);
+
+  function sync() {
+    var isLight = root.getAttribute('data-theme') === 'light';
+    label.textContent = isLight ? 'Dark mode' : 'Light mode';
+  }
+  sync();
+
+  btn.addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('groundtruth-theme', next); } catch (e) {}
+    sync();
+  });
+})();
+</script>
 <script>
 (function(){
   var data = [
