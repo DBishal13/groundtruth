@@ -2,7 +2,7 @@
 
 > **LangGraph for GIS** — an open, model-agnostic validation layer that catches an LLM's bad CRS, geometry, and topology before it reaches your GIS pipeline, across GeoJSON, WKT/WKB, KML/GML, Shapefile, and GeoPackage.
 
-Status: early working prototype (v0.1.0), not a validated product — see [PITCH.md](PITCH.md) for the business case and [VALIDATION.md](VALIDATION.md) for the decision gate on whether to invest further.
+Status: early working prototype (v0.1.0), not a validated product — see [PITCH.md](PITCH.md) for the business case and [VALIDATION.md](VALIDATION.md) for the decision gate on whether to invest further. Licensed under [Apache 2.0](LICENSE).
 
 ## Features
 

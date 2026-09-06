@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groundtruth — LangGraph for GIS</title>
+<meta name="description" content="LangGraph for GIS — an open, model-agnostic validation layer that catches an LLM's bad CRS, geometry, and topology before it reaches a GIS pipeline.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ---- tokens: a single committed world (survey blueprint / cyanotype) ---- */
+  :root{
+    --surface:#12283F;
+    --surface-raised:#1B3A5C;
+    --surface-card:#1E4468;
+    --line:#2C5178;
+    --line-soft:#203C5A;
+    --ink:#EAF2F5;
+    --ink-muted:#9FBACC;
+    --ink-faint:#6E8CA6;
+    --accent:#F2A65A;
+    --accent-dim:#B87B3E;
+    --good:#3F9E7A;
+    --critical:#E0703A;
+    --font-display:'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    --font-body:'IBM Plex Sans', -apple-system, Segoe UI, sans-serif;
+    --font-mono:'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html{background:var(--surface); color-scheme:dark;}
+  body{
+    margin:0;
+    background:var(--surface);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:16px;
+    line-height:1.55;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line-soft) 39px, var(--line-soft) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--line-soft) 39px, var(--line-soft) 40px);
+  }
+  h1,h2,h3{font-family:var(--font-display); font-weight:600; text-wrap:balance; margin:0;}
+  p{margin:0;}
+  code, .mono, .tabnum{font-family:var(--font-mono); font-variant-numeric:tabular-nums;}
+  a{color:var(--accent);}
+  img{max-width:100%;}
+  ::selection{background:var(--accent); color:var(--surface);}
+
+  .wrap{max-width:1080px; margin:0 auto; padding:0 32px;}
+  .kicker{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent);
+  }
+  section{padding:88px 0;}
+  section + section{border-top:1px solid var(--line-soft);}
+
+  /* ---- hero ---- */
+  .hero{
+    position:relative; padding:0; overflow:hidden;
+    border-bottom:1px solid var(--line);
+  }
+  .hero-inner{
+    position:relative; z-index:2;
+    max-width:1080px; margin:0 auto; padding:96px 32px 72px;
+  }
+  .hero-coord{
+    position:absolute; z-index:2; font-family:var(--font-mono); font-size:12px; color:var(--ink-faint);
+    letter-spacing:.02em;
+  }
+  .hero-coord.tl{top:28px; left:32px;}
+  .hero-coord.tr{top:28px; right:32px; text-align:right;}
+  .hero-coord.bl{bottom:28px; left:32px;}
+  .hero-coord.br{bottom:28px; right:32px; text-align:right;}
+  .hero-crosshair{position:absolute; width:22px; height:22px; z-index:2; opacity:.65;}
+  .hero-crosshair::before,.hero-crosshair::after{content:"";position:absolute;background:var(--ink-faint);}
+  .hero-crosshair::before{left:50%; top:0; width:1px; height:100%; transform:translateX(-50%);}
+  .hero-crosshair::after{top:50%; left:0; height:1px; width:100%; transform:translateY(-50%);}
+  .hero-crosshair.c1{top:24px; left:28px;}
+  .hero-crosshair.c2{top:24px; right:28px;}
+  .hero-crosshair.c3{bottom:24px; left:28px;}
+  .hero-crosshair.c4{bottom:24px; right:28px;}
+
+  .stamp{
+    display:inline-flex; align-items:center; gap:8px;
+    border:1px solid var(--accent-dim); color:var(--accent);
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    padding:6px 12px; border-radius:2px; transform:rotate(-1.5deg);
+    background:rgba(242,166,90,0.06);
+  }
+  .stamp .dot{width:6px; height:6px; border-radius:50%; background:var(--accent);}
+
+  .hero h1{font-size:clamp(44px,7vw,76px); line-height:.98; margin:22px 0 0; letter-spacing:-.01em;}
+  .hero .tagline{
+    font-family:var(--font-mono); color:var(--ink-muted); font-size:clamp(14px,2vw,18px);
+    margin-top:18px; max-width:640px;
+  }
+  .hero .tagline b{color:var(--ink); font-weight:600;}
+  .hero-lede{margin-top:26px; max-width:600px; color:var(--ink-muted); font-size:16px;}
+  .hero-actions{display:flex; gap:14px; margin-top:36px; flex-wrap:wrap;}
+  .btn{
+    font-family:var(--font-mono); font-size:13px; letter-spacing:.03em;
+    padding:12px 20px; border-radius:2px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+    border:1px solid var(--line);
+  }
+  .btn.primary{background:var(--accent); color:var(--surface); border-color:var(--accent); font-weight:600;}
+  .btn.ghost{color:var(--ink); border-color:var(--line);}
+  .btn.ghost:hover{border-color:var(--ink-muted);}
+
+  .hero-code{
+    margin-top:44px; border:1px solid var(--line); border-radius:3px; background:var(--surface-raised);
+    max-width:600px; overflow:hidden;
+  }
+  .hero-code .bar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 14px; border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:11px; color:var(--ink-faint);
+    letter-spacing:.06em; text-transform:uppercase;
+  }
+  .hero-code pre{margin:0; padding:16px 18px; overflow-x:auto; font-size:13px; line-height:1.65;}
+  .hero-code .c-key{color:var(--ink-muted);}
+  .hero-code .c-str{color:var(--good);}
+  .hero-code .c-com{color:var(--ink-faint);}
+  .hero-code .c-err{color:var(--critical);}
+
+  /* ---- readout strip ---- */
+  .readout{padding:52px 0; border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft); background:rgba(0,0,0,0.08);}
+  .readout-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0;
+  }
+  .readout-item{
+    padding:0 28px; border-left:1px solid var(--line-soft);
+  }
+  .readout-item:first-child{border-left:none; padding-left:0;}
+  .readout-num{font-family:var(--font-mono); font-size:34px; font-weight:600; color:var(--ink); letter-spacing:-.01em;}
+  .readout-num .unit{font-size:16px; color:var(--ink-muted); font-weight:400;}
+  .readout-label{font-size:12px; color:var(--ink-muted); margin-top:6px; letter-spacing:.02em;}
+
+  /* ---- generic section heading ---- */
+  .section-head{max-width:640px; margin-bottom:44px;}
+  .section-head h2{font-size:clamp(26px,3.4vw,34px);}
+  .section-head p{color:var(--ink-muted); margin-top:14px; font-size:15.5px;}
+
+  /* ---- problem / landscape ---- */
+  .landscape{display:grid; grid-template-columns:1.1fr .9fr; gap:56px; align-items:start;}
+  .landscape p{color:var(--ink-muted); font-size:15.5px;}
+  .landscape p + p{margin-top:14px;}
+  .landscape .stat-quote{
+    margin-top:20px; padding-left:16px; border-left:2px solid var(--accent);
+    font-family:var(--font-mono); font-size:14px; color:var(--ink);
+  }
+  table.compare{width:100%; border-collapse:collapse; font-size:14px;}
+  table.compare th{
+    text-align:left; font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-faint); font-weight:500; padding:0 0 10px; border-bottom:1px solid var(--line);
+  }
+  table.compare td{padding:12px 0; border-bottom:1px solid var(--line-soft); vertical-align:top; color:var(--ink-muted);}
+  table.compare td:first-child{color:var(--ink); font-weight:500; white-space:nowrap; padding-right:16px;}
+  table.compare tr:last-child td{border-bottom:none;}
+  .pill{
+    display:inline-block; font-family:var(--font-mono); font-size:11px; padding:2px 8px; border-radius:999px;
+    letter-spacing:.03em;
+  }
+  .pill.walled{background:rgba(224,112,58,0.14); color:var(--critical); border:1px solid rgba(224,112,58,.35);}
+  .pill.open{background:rgba(63,158,122,0.14); color:var(--good); border:1px solid rgba(63,158,122,.35);}
+
+  /* ---- architecture ---- */
+  .arch-diagram{width:100%; height:auto; display:block;}
+  .arch-caption{margin-top:18px; color:var(--ink-faint); font-size:13px; font-family:var(--font-mono);}
+
+  /* ---- field samples ---- */
+  .samples{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  .sample-card{
+    border:1px solid var(--line); border-radius:3px; background:var(--surface-raised); overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .sample-head{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    padding:12px 16px; border-bottom:1px solid var(--line); background:rgba(0,0,0,.12);
+  }
+  .sample-head .fmt{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint);}
+  .verdict{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.04em; padding:3px 8px; border-radius:2px;
+  }
+  .verdict.reject{background:rgba(224,112,58,.16); color:var(--critical);}
+  .verdict.pass{background:rgba(63,158,122,.16); color:var(--good);}
+  .sample-body{padding:16px; flex:1; display:flex; flex-direction:column; gap:12px;}
+  .sample-input{
+    font-family:var(--font-mono); font-size:12.5px; color:var(--ink-muted); background:var(--surface);
+    border:1px solid var(--line-soft); border-radius:2px; padding:10px 12px; overflow-x:auto; white-space:pre;
+  }
+  .sample-issue{font-family:var(--font-mono); font-size:12px; color:var(--critical);}
+  .sample-issue.ok{color:var(--good);}
+  .sample-fix{font-size:13px; color:var(--ink-muted); line-height:1.5;}
+
+  /* ---- throughput chart ---- */
+  .chart-card{border:1px solid var(--line); border-radius:3px; background:var(--surface-raised); padding:28px 28px 20px;}
+  .chart-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:22px; flex-wrap:wrap; gap:8px;}
+  .chart-top h3{font-family:var(--font-body); font-size:15px; font-weight:600; color:var(--ink);}
+  .chart-top .note{font-family:var(--font-mono); font-size:11px; color:var(--ink-faint);}
+  .bar-row{display:grid; grid-template-columns:120px 1fr 90px; align-items:center; gap:14px; padding:9px 0;}
+  .bar-row .label{font-family:var(--font-mono); font-size:13px; color:var(--ink);}
+  .bar-track{position:relative; height:22px; background:var(--surface); border-radius:2px; overflow:visible;}
+  .bar-fill{
+    position:absolute; left:0; top:0; height:100%; border-radius:2px;
+    background:linear-gradient(90deg, var(--accent-dim), var(--accent));
+    transition:filter .15s ease;
+  }
+  .bar-fill:hover{filter:brightness(1.12);}
+  .bar-row .val{font-family:var(--font-mono); font-size:13px; color:var(--ink-muted); text-align:right;}
+  .chart-foot{margin-top:16px; font-size:12px; color:var(--ink-faint); font-family:var(--font-mono);}
+
+  /* ---- coverage grid ---- */
+  .coverage{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:3px; overflow:hidden;}
+  .cov-item{background:var(--surface-raised); padding:20px 18px; display:flex; flex-direction:column; gap:6px;}
+  .cov-item .name{font-family:var(--font-mono); font-size:14px; font-weight:500; color:var(--ink);}
+  .cov-item .note{font-size:12px; color:var(--ink-faint);}
+
+  /* ---- get started ---- */
+  .start-grid{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+  .code-block{border:1px solid var(--line); border-radius:3px; background:var(--surface-raised); overflow:hidden;}
+  .code-block .bar{padding:9px 14px; border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:11px; color:var(--ink-faint); letter-spacing:.06em; text-transform:uppercase;}
+  .code-block pre{margin:0; padding:16px 18px; font-family:var(--font-mono); font-size:13px; overflow-x:auto; line-height:1.7; color:var(--ink-muted);}
+  .code-block .c-com{color:var(--ink-faint);}
+
+  /* ---- footer ---- */
+  footer{padding:48px 0 64px;}
+  .footer-grid{display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:24px;}
+  .footer-legend{font-family:var(--font-mono); font-size:12px; color:var(--ink-faint); line-height:1.9;}
+  .footer-legend b{color:var(--ink-muted); font-weight:500;}
+  .footer-links{display:flex; gap:18px; font-family:var(--font-mono); font-size:13px;}
+  .footer-links a{color:var(--ink-muted); text-decoration:none;}
+  .footer-links a:hover{color:var(--accent);}
+
+  @media (max-width:820px){
+    .landscape{grid-template-columns:1fr;}
+    .samples{grid-template-columns:1fr;}
+    .start-grid{grid-template-columns:1fr;}
+    .coverage{grid-template-columns:repeat(2,1fr);}
+    .readout-grid{grid-template-columns:repeat(2,1fr); row-gap:24px;}
+    .readout-item{border-left:none !important; padding-left:0 !important;}
+    .bar-row{grid-template-columns:90px 1fr 70px; gap:8px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-crosshair c1"></div>
+  <div class="hero-crosshair c2"></div>
+  <div class="hero-crosshair c3"></div>
+  <div class="hero-crosshair c4"></div>
+  <div class="hero-coord tl">37.7749&deg; N</div>
+  <div class="hero-coord tr">EPSG:4326</div>
+  <div class="hero-coord bl">DATUM WGS84</div>
+  <div class="hero-coord br">122.4194&deg; W</div>
+
+  <div class="hero-inner">
+    <span class="stamp"><span class="dot"></span>STATUS &mdash; EARLY PROTOTYPE &middot; v0.1.0</span>
+    <h1>groundtruth</h1>
+    <p class="tagline"><b>LangGraph for GIS</b> &mdash; an open, model-agnostic validation layer that catches an LLM's bad CRS, geometry, and topology before it reaches your GIS pipeline.</p>
+    <p class="hero-lede">Esri, Google, and CARTO are each building this feature into their own walled platform. Nobody's shipped it as a portable, open primitive any agent stack can drop in &mdash; over MCP, LangGraph, or a raw tool-calling loop. This is the bet that it should exist as infrastructure, not a vertical app.</p>
+
+    <div class="hero-actions">
+      <a class="btn primary" href="https://github.com/DBishal13/groundtruth" target="_blank" rel="noopener">View source &rarr;</a>
+      <a class="btn ghost" href="https://github.com/DBishal13/groundtruth/blob/main/BENCHMARKS.md" target="_blank" rel="noopener">Read the benchmark</a>
+    </div>
+
+    <div class="hero-code">
+      <div class="bar"><span>guard.ts</span><span>real output</span></div>
+      <pre><span class="c-com">// an LLM swaps lat/lng — the #1 documented failure mode</span>
+<span class="c-key">guardToolCall</span>({
+  geometry: { type: <span class="c-str">"Point"</span>, coordinates: [<span class="c-err">37.77, -122.42</span>] }
+});
+<span class="c-com">// -&gt; ok: false
+// -&gt; issues[0].code: "lat_out_of_range"
+// -&gt; issues[0].fix: "GeoJSON positions are always</span>
+<span class="c-com">//     [longitude, latitude]. Swap axes if you built</span>
+<span class="c-com">//     this from a [lat, lng] source..."</span></pre>
+    </div>
+  </div>
+</div>
+
+<div class="readout">
+  <div class="wrap readout-grid">
+    <div class="readout-item">
+      <div class="readout-num">100<span class="unit">%</span></div>
+      <div class="readout-label">detection rate &mdash; 13/13 documented failure modes</div>
+    </div>
+    <div class="readout-item">
+      <div class="readout-num">0</div>
+      <div class="readout-label">false positives &mdash; 6/6 clean corpus cases</div>
+    </div>
+    <div class="readout-item">
+      <div class="readout-num">7</div>
+      <div class="readout-label">geometry formats supported end to end</div>
+    </div>
+    <div class="readout-item">
+      <div class="readout-num">557K<span class="unit">/sec</span></div>
+      <div class="readout-label">peak validation throughput (hex WKB)</div>
+    </div>
+    <div class="readout-item">
+      <div class="readout-num">59</div>
+      <div class="readout-label">passing unit tests, 6 suites</div>
+    </div>
+  </div>
+</div>
+
+<section class="wrap">
+  <div class="landscape">
+    <div>
+      <div class="kicker">Why this matters</div>
+      <h2 style="margin-top:12px; font-size:28px;">The gap is real, and closing</h2>
+      <p style="margin-top:18px;">Esri ships AI Assistants into ArcGIS Online on a monthly cadence through 2026. Google Research's "Geospatial Reasoning" orchestrates Gemini across multiple Earth foundation models, still a trusted-tester preview. CARTO ships production AI agents over customer warehouses.</p>
+      <p>All three are building the same underlying safeguard &mdash; catch the model's bad geometry before it reaches real GIS work &mdash; inside their own platform. None of them ship it as something a Claude, LangGraph, or custom agent stack outside their walls can use.</p>
+      <div class="stat-quote">GeoBenchX: even the best model tested (Claude Sonnet 3.5) hit only 53% success on solvable multi-step geospatial tasks &mdash; routinely confusing centroids for polygons and using stale geographic facts.</div>
+    </div>
+    <div>
+      <table class="compare">
+        <tr><th>Platform</th><th>Validation layer</th><th>Portable?</th></tr>
+        <tr><td>Esri ArcGIS AI</td><td>Built in, proprietary</td><td><span class="pill walled">Walled</span></td></tr>
+        <tr><td>Google Geospatial Reasoning</td><td>Built in, preview</td><td><span class="pill walled">Walled</span></td></tr>
+        <tr><td>CARTO AI Agents</td><td>Built in, warehouse-bound</td><td><span class="pill walled">Walled</span></td></tr>
+        <tr><td>groundtruth</td><td>Standalone library + MCP server</td><td><span class="pill open">Open</span></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <div class="kicker">Architecture</div>
+    <h2 style="margin-top:12px;">Two paths, one validation core</h2>
+    <p>An LLM either passes geometry inline in a tool-call argument, or points at a file it can't embed (Shapefile, GeoPackage). Both roads run through the same structural, topology, and CRS checks.</p>
+  </div>
+
+  <svg class="arch-diagram" viewBox="0 0 1016 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Architecture diagram showing the inline tool-call path and the file-based path both flowing through the shared guard core">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#6E8CA6"/>
+      </marker>
+    </defs>
+    <style>
+      .lbl{font-family:'IBM Plex Mono',monospace; font-size:12px; fill:#EAF2F5;}
+      .lbl-sm{font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:#9FBACC;}
+      .hd{font-family:'IBM Plex Sans',sans-serif; font-size:11px; fill:#6E8CA6; letter-spacing:.06em;}
+      .box{fill:#1B3A5C; stroke:#2C5178; stroke-width:1;}
+      .box-accent{fill:#1E4468; stroke:#F2A65A; stroke-width:1.2;}
+      .edge{stroke:#6E8CA6; stroke-width:1.2; fill:none; marker-end:url(#arrow);}
+    </style>
+
+    <!-- Inline path -->
+    <text x="16" y="24" class="hd">INLINE TOOL-CALL ARGUMENT</text>
+    <rect x="16" y="36" width="168" height="52" rx="3" class="box"/>
+    <text x="30" y="58" class="lbl">LLM tool call</text>
+    <text x="30" y="74" class="lbl-sm">buffer_geometry(...)</text>
+
+    <path d="M184,62 H224" class="edge"/>
+    <rect x="224" y="36" width="180" height="52" rx="3" class="box-accent"/>
+    <text x="238" y="58" class="lbl">guardToolCall()</text>
+    <text x="238" y="74" class="lbl-sm">formats.ts detect</text>
+
+    <path d="M314,88 V118" class="edge"/>
+    <rect x="224" y="118" width="180" height="60" rx="3" class="box"/>
+    <text x="238" y="140" class="lbl">geojson.ts + crs.ts</text>
+    <text x="238" y="156" class="lbl-sm">topology, winding,</text>
+    <text x="238" y="170" class="lbl-sm">axis range, EPSG</text>
+
+    <path d="M314,178 V206" class="edge"/>
+    <path d="M300,222 l14,-16 l14,16 l-14,16 z" fill="#1E4468" stroke="#F2A65A" stroke-width="1.2"/>
+    <text x="314" y="226" text-anchor="middle" class="lbl-sm" style="fill:#F2A65A;">ok?</text>
+
+    <path d="M300,222 H180" class="edge"/>
+    <rect x="16" y="196" width="164" height="52" rx="3" class="box"/>
+    <text x="30" y="218" class="lbl" style="fill:#E0703A;">Rejected</text>
+    <text x="30" y="234" class="lbl-sm">issues[] + fix strings</text>
+    <text x="255" y="215" class="lbl-sm" style="fill:#E0703A;">no</text>
+
+    <path d="M328,222 H420" class="edge"/>
+    <text x="336" y="212" class="lbl-sm" style="fill:#3F9E7A;">yes</text>
+    <rect x="420" y="196" width="180" height="52" rx="3" class="box"/>
+    <text x="434" y="218" class="lbl">normalized args</text>
+    <text x="434" y="234" class="lbl-sm">always GeoJSON</text>
+
+    <path d="M600,222 H656" class="edge"/>
+    <rect x="656" y="196" width="180" height="52" rx="3" class="box-accent"/>
+    <text x="670" y="218" class="lbl">GIS tool runs</text>
+    <text x="670" y="234" class="lbl-sm">turf: buffer/reproject</text>
+
+    <!-- divider -->
+    <line x1="0" y1="290" x2="1016" y2="290" stroke="#2C5178" stroke-dasharray="2 5"/>
+
+    <!-- File-based path -->
+    <text x="16" y="316" class="hd">FILE-BASED (SHAPEFILE / GEOPACKAGE / KML / GML)</text>
+    <rect x="16" y="328" width="180" height="52" rx="3" class="box"/>
+    <text x="30" y="350" class="lbl">validate_geometry_file</text>
+    <text x="30" y="366" class="lbl-sm">(file_path)</text>
+
+    <path d="M196,354 H236" class="edge"/>
+    <rect x="236" y="328" width="164" height="52" rx="3" class="box-accent"/>
+    <text x="250" y="350" class="lbl">files.ts</text>
+    <text x="250" y="366" class="lbl-sm">detect by ext/content</text>
+
+    <path d="M400,354 H415 V313 H436" class="edge"/>
+    <rect x="436" y="296" width="150" height="34" rx="3" class="box"/>
+    <text x="450" y="317" class="lbl-sm">.shp via shapefile</text>
+    <path d="M400,354 H436" class="edge"/>
+    <rect x="436" y="338" width="150" height="34" rx="3" class="box"/>
+    <text x="450" y="359" class="lbl-sm">.gpkg via sql.js+wkx</text>
+    <path d="M400,354 H415 V397 H436" class="edge"/>
+    <rect x="436" y="380" width="150" height="34" rx="3" class="box"/>
+    <text x="450" y="401" class="lbl-sm">KML/GML/GeoJSON/WKT</text>
+
+    <path d="M586,313 H606 V340 H626" class="edge"/>
+    <path d="M586,355 H606 V354 H626" class="edge"/>
+    <path d="M586,397 H606 V368 H626" class="edge"/>
+    <rect x="626" y="328" width="150" height="52" rx="3" class="box"/>
+    <text x="640" y="350" class="lbl">feature list</text>
+    <text x="640" y="366" class="lbl-sm">[{ geojson, props }]</text>
+
+    <path d="M776,354 H816" class="edge"/>
+    <rect x="816" y="328" width="184" height="52" rx="3" class="box-accent"/>
+    <text x="830" y="350" class="lbl">guardGeometryFile()</text>
+    <text x="830" y="366" class="lbl-sm">same guard, per feature</text>
+  </svg>
+  <div class="arch-caption">Both paths share the same structural + topology + CRS checks — the only difference is how many features go through them at once.</div>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <div class="kicker">Field samples</div>
+    <h2 style="margin-top:12px;">Real input, real output</h2>
+    <p>Pulled directly from the committed fixture corpus and its captured results &mdash; not illustrative, not hand-written. <a href="https://github.com/DBishal13/groundtruth/blob/main/examples/fixtures/RESULTS.md" target="_blank" rel="noopener">Full corpus &rarr;</a></p>
+  </div>
+
+  <div class="samples">
+    <div class="sample-card">
+      <div class="sample-head"><span class="fmt">GeoJSON</span><span class="verdict reject">rejected</span></div>
+      <div class="sample-body">
+        <div class="sample-input">{ "type": "Point",
+  "coordinates": [37.77, -122.42] }</div>
+        <div class="sample-issue">lat_out_of_range</div>
+        <div class="sample-fix">Latitude -122.42 is out of range &mdash; positions are always [longitude, latitude]. Likely built from a [lat, lng] source.</div>
+      </div>
+    </div>
+    <div class="sample-card">
+      <div class="sample-head"><span class="fmt">KML &middot; 2 features</span><span class="verdict reject">1/2 valid</span></div>
+      <div class="sample-body">
+        <div class="sample-input">&lt;Placemark&gt;&lt;name&gt;Bowtie&lt;/name&gt;
+&lt;Polygon&gt;&hellip; 0,0 1,1 1,0 0,1 0,0</div>
+        <div class="sample-issue">self_intersection, zero_area</div>
+        <div class="sample-fix">Ring crosses itself &mdash; a common cause is closing a ring with points out of order.</div>
+      </div>
+    </div>
+    <div class="sample-card">
+      <div class="sample-head"><span class="fmt">WKT</span><span class="verdict pass">valid</span></div>
+      <div class="sample-body">
+        <div class="sample-input">POLYGON((-122.42 37.77,
+ -122.41 37.77, -122.41 37.78,
+ -122.42 37.78, -122.42 37.77))</div>
+        <div class="sample-issue ok">no issues</div>
+        <div class="sample-fix">Structurally sound, correctly wound (CCW), normalized to GeoJSON for the wrapped GIS tool.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <div class="kicker">Throughput</div>
+    <h2 style="margin-top:12px;">Fast enough to never be the bottleneck</h2>
+    <p>Single-process <code>guardToolCall</code> calls per second, measured in <a href="https://github.com/DBishal13/groundtruth/blob/main/bench/run.ts" target="_blank" rel="noopener">bench/run.ts</a> &mdash; Node v24.18.1, win32/x64, 5,000 iterations per format after warmup.</p>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-top">
+      <h3>Validations per second, by input format</h3>
+      <span class="note">higher is better</span>
+    </div>
+    <div id="chart-bars"></div>
+    <div class="chart-foot">XML formats (KML/GML) pay for a fresh document parse per call &mdash; still ~25K/sec, three orders of magnitude faster than any LLM round-trip.</div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <div class="kicker">Format coverage</div>
+    <h2 style="margin-top:12px;">One guard, every wire format a GIS tool actually sees</h2>
+  </div>
+  <div class="coverage">
+    <div class="cov-item"><span class="name">GeoJSON</span><span class="note">object &middot; read/write</span></div>
+    <div class="cov-item"><span class="name">WKT / EWKT</span><span class="note">string &middot; inline</span></div>
+    <div class="cov-item"><span class="name">WKB / EWKB</span><span class="note">hex &middot; inline</span></div>
+    <div class="cov-item"><span class="name">KML</span><span class="note">XML &middot; inline or file</span></div>
+    <div class="cov-item"><span class="name">GML</span><span class="note">XML &middot; inline or file</span></div>
+    <div class="cov-item"><span class="name">Shapefile</span><span class="note">.shp &middot; file only</span></div>
+    <div class="cov-item"><span class="name">GeoPackage</span><span class="note">.gpkg &middot; file only</span></div>
+    <div class="cov-item" style="opacity:.55;"><span class="name">+ CRS resolution</span><span class="note">WGS84, Web Mercator, UTM, BNG&hellip;</span></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <div class="kicker">Get started</div>
+    <h2 style="margin-top:12px;">Three ways in</h2>
+  </div>
+  <div class="start-grid">
+    <div class="code-block">
+      <div class="bar">As a library</div>
+      <pre><span class="c-com">// not yet on npm — clone and link locally</span>
+git clone github.com/DBishal13/groundtruth
+cd groundtruth &amp;&amp; npm install &amp;&amp; npm run build
+
+<span class="c-com">// then, in your agent's tool layer:</span>
+import { guardToolCall } from "groundtruth";
+const result = guardToolCall({ geometry });</pre>
+    </div>
+    <div class="code-block">
+      <div class="bar">As an MCP server</div>
+      <pre>claude mcp add groundtruth -- \
+  node dist/mcp/server.js
+
+<span class="c-com">// exposes: validate_geometry,
+// validate_geometry_file, buffer_geometry,
+// reproject_geometry, intersect_geometries</span></pre>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <div class="footer-grid">
+    <div class="footer-legend">
+      <div><b>Repository</b> &nbsp;github.com/DBishal13/groundtruth</div>
+      <div><b>Datum</b> &nbsp;WGS84 &middot; <b>Stack</b> &nbsp;TypeScript, Node, MCP SDK, turf, proj4, wkx, sql.js</div>
+      <div><b>Status</b> &nbsp;early prototype, v0.1.0 &middot; not yet on npm &middot; licensed Apache 2.0</div>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/DBishal13/groundtruth" target="_blank" rel="noopener">Source</a>
+      <a href="https://github.com/DBishal13/groundtruth/blob/main/BENCHMARKS.md" target="_blank" rel="noopener">Benchmarks</a>
+      <a href="https://github.com/DBishal13/groundtruth/blob/main/README.md" target="_blank" rel="noopener">README</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var data = [
+    {label:"hex WKB", value:557184},
+    {label:"GeoJSON", value:166776},
+    {label:"WKT", value:152897},
+    {label:"inline KML", value:29724},
+    {label:"inline GML", value:25832}
+  ];
+  var max = Math.max.apply(null, data.map(function(d){return d.value;}));
+  var el = document.getElementById('chart-bars');
+  data.forEach(function(d){
+    var row = document.createElement('div');
+    row.className = 'bar-row';
+    var pct = (d.value / max * 100).toFixed(1);
+    row.innerHTML =
+      '<span class="label">'+d.label+'</span>'+
+      '<span class="bar-track"><span class="bar-fill" style="width:'+pct+'%" title="'+d.label+': '+d.value.toLocaleString()+'/sec"></span></span>'+
+      '<span class="val tabnum">'+d.value.toLocaleString()+'</span>';
+    el.appendChild(row);
+  });
+})();
+</script>
+</body>
+</html>
