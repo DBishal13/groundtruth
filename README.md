@@ -22,30 +22,30 @@ Two paths through the same validation core, depending on whether the geometry ar
 
 ```mermaid
 flowchart TD
-    A["LLM tool call\ne.g. buffer_geometry(geometry, distance_km)"] --> B["guardToolCall(args, expectations?)"]
-    B --> C["formats.ts\ndetect wire format:\nGeoJSON / WKT/EWKT / hex WKB/EWKB / KML / GML"]
-    C --> D["geojson.ts\nstructural + topology checks\n(self-intersection, zero-area, winding, axis range)"]
-    C --> E["crs.ts\nresolve CRS string to EPSG + proj4 def"]
+    A["LLM tool call<br/>e.g. buffer_geometry(...)"] --> B["guardToolCall(args,<br/>expectations?)"]
+    B --> C["formats.ts<br/>detect wire format:<br/>GeoJSON / WKT / WKB<br/>/ KML / GML"]
+    C --> D["geojson.ts<br/>structural + topology<br/>checks"]
+    C --> E["crs.ts<br/>resolve CRS to EPSG"]
     D --> F{ok?}
     E --> F
-    F -- "no" --> G["Rejected — issues + fix strings\nreturned to the calling model"]
-    F -- "yes" --> H["normalized args\n(always GeoJSON, regardless of input format)"]
-    H --> I["wrapped GIS tool runs\n(turf: buffer / reproject / intersect)"]
+    F -- "no" --> G["Rejected<br/>issues[] + fix strings"]
+    F -- "yes" --> H["normalized args<br/>(always GeoJSON)"]
+    H --> I["GIS tool runs<br/>(turf: buffer/reproject)"]
 ```
 
 **Path 2 — file-based (can't be embedded inline):**
 
 ```mermaid
 flowchart TD
-    J["validate_geometry_file(file_path)"] --> K["files.ts\ndetect format by extension/content"]
-    K --> L["Shapefile (.shp)\nvia shapefile"]
-    K --> M["GeoPackage (.gpkg)\nsql.js + strip GPB header + wkx"]
-    K --> N["KML / GML / GeoJSON / WKT\nfull-document parse"]
-    L --> O["one feature list"]
+    J["validate_geometry_file<br/>(file_path)"] --> K["files.ts<br/>detect by ext/content"]
+    K --> L[".shp<br/>via shapefile"]
+    K --> M[".gpkg<br/>via sql.js + wkx"]
+    K --> N["KML / GML<br/>GeoJSON / WKT"]
+    L --> O["feature list"]
     M --> O
     N --> O
-    O --> P["guardGeometryFile:\nrun the same guard per feature"]
-    P --> Q["per-feature report\n'N/M features valid' + issues"]
+    O --> P["guardGeometryFile()<br/>run guard per feature"]
+    P --> Q["per-feature report<br/>'N/M valid' + issues"]
 ```
 
 Both paths share the same structural, topology, and CRS checks — the only difference is how many features go through them at once.
