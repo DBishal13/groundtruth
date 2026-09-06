@@ -1,6 +1,6 @@
 # Groundtruth
 
-> Deterministic CRS resolution, GeoJSON validation, and topology sanity checks wrapped around every LLM tool call — the "LangGraph for GIS" nobody's shipped as an open, model-agnostic layer.
+> **LangGraph for GIS** — an open, model-agnostic validation layer that catches an LLM's bad CRS, GeoJSON, and topology before it reaches your GIS pipeline, across GeoJSON, WKT/WKB, KML/GML, Shapefile, and GeoPackage. Nobody's shipped this as portable infrastructure yet; every incumbent bakes it into their own walled platform instead.
 
 **Domain:** Agentic AI · **Tier:** 1 (build now) · **Composite score:** 3.4/5
 
@@ -31,6 +31,46 @@ Incumbents have every incentive to keep this feature captive to their own platfo
 
 ## Status
 This is a thin working prototype, not a validated product yet. `VALIDATION.md` is still the decision gate for whether to invest further.
+
+## Results
+
+Real, reproducible numbers from `npm run bench` — full methodology, caveats, and known limitations in [BENCHMARKS.md](BENCHMARKS.md):
+
+- **13/13** documented failure modes correctly detected, **0** false positives across the clean corpus
+- **6 wire formats** validated end to end: GeoJSON, WKT/EWKT, WKB/EWKB, KML, GML, Shapefile, GeoPackage
+- **25,000-560,000 validations/sec** depending on format (GeoJSON/WKT/WKB in-process; KML/GML pay for an XML parse)
+- Building the benchmark corpus itself surfaced and fixed one real gap: a geometry-shaped tool-call argument with a misspelled/miscased `type` (e.g. `"point"`, `"Polgyon"`) was previously skipped by the guard entirely instead of being flagged — see BENCHMARKS.md for the full writeup
+
+## Architecture
+
+Two paths through the same validation core, depending on whether the geometry arrives inline in a tool call or lives in a file the model can only reference by path:
+
+```mermaid
+flowchart TD
+    subgraph Inline["Inline tool-call argument"]
+        A["LLM tool call\ne.g. buffer_geometry(geometry, distance_km)"] --> B["guardToolCall(args, expectations?)"]
+        B --> C["formats.ts\ndetect wire format:\nGeoJSON / WKT/EWKT / hex WKB/EWKB / KML / GML"]
+        C --> D["geojson.ts\nstructural + topology checks\n(self-intersection, zero-area, winding, axis range)"]
+        C --> E["crs.ts\nresolve CRS string to EPSG + proj4 def"]
+        D --> F{ok?}
+        E --> F
+        F -- "no" --> G["Rejected — issues + fix strings\nreturned to the calling model"]
+        F -- "yes" --> H["normalized args\n(always GeoJSON, regardless of input format)"]
+        H --> I["wrapped GIS tool runs\n(turf: buffer / reproject / intersect)"]
+    end
+
+    subgraph FileBased["File-based (can't be embedded inline)"]
+        J["validate_geometry_file(file_path)"] --> K["files.ts\ndetect format by extension/content"]
+        K --> L["Shapefile (.shp)\nvia shapefile"]
+        K --> M["GeoPackage (.gpkg)\nsql.js + strip GPB header + wkx"]
+        K --> N["KML / GML / GeoJSON / WKT\nfull-document parse"]
+        L --> O["one feature list"]
+        M --> O
+        N --> O
+        O --> P["guardGeometryFile:\nrun the same guard per feature"]
+        P --> Q["per-feature report\n'N/M features valid' + issues"]
+    end
+```
 
 ## Prototype: what's here
 

@@ -1,5 +1,21 @@
 import { resolveCRS } from "./crs.js";
 import { checkTopology, validateStructure, type AnyGeoJSON } from "./geojson.js";
+
+/**
+ * A weaker, structural-only signal than parseGeometryInput's format
+ * detection: an object with a string `type` and an array `coordinates` is
+ * clearly *intended* as a GeoJSON geometry even if `type` is misspelled or
+ * miscased (e.g. "Polgyon", "point") — a plausible and common LLM mistake.
+ * parseGeometryInput requires a *recognized* type and would return null
+ * here, letting the field slip past guardToolCall unchecked; this catches
+ * it so validateStructure can report the real "invalid_type" problem
+ * instead of the field being silently ignored.
+ */
+function looksIntendedAsGeometry(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return typeof obj.type === "string" && Array.isArray(obj.coordinates);
+}
 import { isMalformed, parseGeometryInput, type MalformedGeometry, type ParsedGeometry } from "./formats.js";
 import type { FieldExpectation, GeoJSONType, GeometryFormat, GuardResult, Issue } from "./types.js";
 
@@ -119,7 +135,15 @@ export function guardToolCall(
 
   for (const [key, value] of Object.entries(args)) {
     const parsed = parseGeometryInput(value);
-    if (!parsed) continue;
+    if (!parsed) {
+      if (looksIntendedAsGeometry(value)) {
+        formats[key] = "geojson";
+        for (const issue of validateStructure(value)) {
+          issues.push({ ...issue, message: `${key}: ${issue.message}` });
+        }
+      }
+      continue;
+    }
 
     if (isMalformed(parsed)) {
       formats[key] = parsed.format;

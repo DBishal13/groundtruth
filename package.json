@@ -1,7 +1,7 @@
 {
   "name": "groundtruth",
   "version": "0.1.0",
-  "description": "Deterministic CRS resolution, GeoJSON validation, and topology sanity checks wrapped around LLM tool calls.",
+  "description": "LangGraph for GIS — an open, model-agnostic validation layer that catches an LLM's bad CRS, geometry, and topology (GeoJSON, WKT/WKB, KML/GML, Shapefile, GeoPackage) before it reaches your GIS pipeline.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,8 @@
     "dev:mcp": "tsx src/mcp/server.ts",
     "test": "vitest run",
     "demo": "tsx examples/demo.ts",
-    "cli": "tsx src/cli.ts"
+    "cli": "tsx src/cli.ts",
+    "bench": "tsx bench/run.ts"
   },
   "files": [
     "dist"

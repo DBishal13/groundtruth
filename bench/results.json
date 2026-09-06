@@ -1,0 +1,193 @@
+{
+  "generatedAt": "2026-09-06T03:22:49.807Z",
+  "inlineCorpus": {
+    "total": 19,
+    "errorCases": 13,
+    "cleanCases": 6,
+    "detectionRate": 1,
+    "falsePositiveFreeRate": 1,
+    "results": [
+      {
+        "label": "swapped lat/lng (GeoJSON Point)",
+        "expected": "lat_out_of_range",
+        "found": [
+          "lat_out_of_range"
+        ],
+        "pass": true
+      },
+      {
+        "label": "longitude out of range",
+        "expected": "lon_out_of_range",
+        "found": [
+          "lon_out_of_range"
+        ],
+        "pass": true
+      },
+      {
+        "label": "self-intersecting bowtie polygon",
+        "expected": "self_intersection",
+        "found": [
+          "self_intersection",
+          "zero_area"
+        ],
+        "pass": true
+      },
+      {
+        "label": "zero-area collinear polygon",
+        "expected": "zero_area",
+        "found": [
+          "zero_area"
+        ],
+        "pass": true
+      },
+      {
+        "label": "antimeridian-spanning linestring",
+        "expected": "possible_antimeridian",
+        "found": [
+          "possible_antimeridian"
+        ],
+        "pass": true
+      },
+      {
+        "label": "clockwise exterior ring (wrong winding)",
+        "expected": "polygon_winding_order",
+        "found": [
+          "polygon_winding_order"
+        ],
+        "pass": true
+      },
+      {
+        "label": "centroid passed where polygon expected",
+        "expected": "geometry_type_mismatch",
+        "found": [
+          "geometry_type_mismatch"
+        ],
+        "pass": true
+      },
+      {
+        "label": "hallucinated CRS name",
+        "expected": "unresolved_crs",
+        "found": [
+          "unresolved_crs"
+        ],
+        "pass": true
+      },
+      {
+        "label": "malformed WKT (unclosed paren)",
+        "expected": "malformed_wkt",
+        "found": [
+          "malformed_wkt"
+        ],
+        "pass": true
+      },
+      {
+        "label": "truncated/ambiguous hex string (should be silently ignored, not flagged)",
+        "expected": null,
+        "found": [],
+        "pass": true
+      },
+      {
+        "label": "malformed KML (no geometry)",
+        "expected": "malformed_kml",
+        "found": [
+          "malformed_kml"
+        ],
+        "pass": true
+      },
+      {
+        "label": "non-geographic SRID (EWKT 3857)",
+        "expected": "non_geographic_srid",
+        "found": [
+          "lat_out_of_range",
+          "non_geographic_srid"
+        ],
+        "pass": true
+      },
+      {
+        "label": "unclosed polygon ring (structural)",
+        "expected": "unclosed_ring",
+        "found": [
+          "unclosed_ring"
+        ],
+        "pass": true
+      },
+      {
+        "label": "invalid geometry type string",
+        "expected": "invalid_type",
+        "found": [
+          "invalid_type"
+        ],
+        "pass": true
+      },
+      {
+        "label": "clean GeoJSON polygon",
+        "expected": null,
+        "found": [],
+        "pass": true
+      },
+      {
+        "label": "clean WKT polygon",
+        "expected": null,
+        "found": [],
+        "pass": true
+      },
+      {
+        "label": "clean hex WKB point",
+        "expected": null,
+        "found": [],
+        "pass": true
+      },
+      {
+        "label": "clean inline KML point",
+        "expected": null,
+        "found": [],
+        "pass": true
+      },
+      {
+        "label": "clean inline GML polygon",
+        "expected": null,
+        "found": [],
+        "pass": true
+      }
+    ]
+  },
+  "fileCorpus": [
+    {
+      "label": "Shapefile: clean polygon",
+      "pass": true,
+      "detail": "1/1 valid"
+    },
+    {
+      "label": "Shapefile: self-intersecting polygon",
+      "pass": true,
+      "detail": "self_intersection, zero_area"
+    },
+    {
+      "label": "GeoPackage: 2 features, 1 broken",
+      "pass": true,
+      "detail": "1/2 valid"
+    }
+  ],
+  "throughput": [
+    {
+      "label": "GeoJSON",
+      "opsPerSec": 166776
+    },
+    {
+      "label": "WKT",
+      "opsPerSec": 152897
+    },
+    {
+      "label": "hex WKB",
+      "opsPerSec": 557184
+    },
+    {
+      "label": "inline KML",
+      "opsPerSec": 29724
+    },
+    {
+      "label": "inline GML",
+      "opsPerSec": 25832
+    }
+  ]
+}
