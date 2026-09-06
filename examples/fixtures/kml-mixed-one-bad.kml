@@ -1,0 +1,8 @@
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+  <Placemark><name>Good parcel</name><Polygon><outerBoundaryIs><LinearRing>
+    <coordinates>-122.42,37.77 -122.41,37.77 -122.41,37.78 -122.42,37.78 -122.42,37.77</coordinates>
+  </LinearRing></outerBoundaryIs></Polygon></Placemark>
+  <Placemark><name>Bowtie parcel (self-intersecting)</name><Polygon><outerBoundaryIs><LinearRing>
+    <coordinates>0,0 1,1 1,0 0,1 0,0</coordinates>
+  </LinearRing></outerBoundaryIs></Polygon></Placemark>
+</Document></kml>
