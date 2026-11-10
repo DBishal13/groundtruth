@@ -1,6 +1,6 @@
 # Groundtruth
 
-> **LangGraph for GIS** — an open, model-agnostic validation layer that catches an LLM's bad CRS, geometry, and topology before it reaches your GIS pipeline, across GeoJSON, WKT/WKB, KML/GML, Shapefile, and GeoPackage.
+> **A type-checker for LLM geometry** — an open, model-agnostic validation layer that catches an LLM's bad CRS, geometry, and topology before it reaches your GIS pipeline, across GeoJSON, WKT/WKB, KML/GML, Shapefile, and GeoPackage.
 
 Status: early working prototype (v0.1.0), not a validated product — see [PITCH.md](PITCH.md) for the business case and [VALIDATION.md](VALIDATION.md) for the decision gate on whether to invest further. Licensed under [Apache 2.0](LICENSE).
 
@@ -72,6 +72,14 @@ npm run demo                               # runs guardToolCall over a handful o
 npm run dev:mcp                            # starts the MCP server on stdio — point an MCP client (e.g. Claude Desktop/Code) at it
 npm run cli -- validate parcel.geojson     # validate a file directly; add --type Polygon to assert the expected shape
 npm run cli -- validate parcels.shp        # Shapefile, GeoPackage, KML, GML, WKT text all work the same way
+```
+
+## Installation
+
+Not published to npm yet. Install straight from GitHub (the `prepare` script builds `dist/` on install):
+
+```bash
+npm install github:DBishal13/groundtruth
 ```
 
 ## Usage

@@ -11,7 +11,7 @@ Real but closing. Esri is shipping AI Assistants into ArcGIS Online on a monthly
 No dedicated market figure exists. Broad AI-agent market estimates range so widely between research firms ($43B by 2030 to $295B by 2035) that none should be treated as reliable for this narrow slice.
 
 ## Feasibility & time-to-MVP
-The validation primitives are solved, mature libraries (Shapely/GEOS, pyproj) — the work is wiring LLM tool-call outputs to them with graceful failure recovery across multi-stage GDAL/PDAL pipelines. A schema-and-CRS wrapper ships in weeks; a full multi-stage orchestrator with topology sanity and rollback is a 3–6 month build for a strong team, roughly matching where academic prototypes (GISclaw) already sit.
+The validation primitives are solved, mature libraries — this prototype is TypeScript on turf, proj4, wkx, and sql.js (the Python equivalents are Shapely/GEOS and pyproj) — and the work is wiring LLM tool-call outputs to them with graceful failure recovery across multi-stage GDAL/PDAL pipelines. A schema-and-CRS wrapper ships in weeks; a full multi-stage orchestrator with topology sanity and rollback is a 3–6 month build for a strong team, roughly matching where academic prototypes (GISclaw) already sit.
 
 ## Existing players to differentiate from
 Esri ArcGIS AI Assistants, Google Geospatial Reasoning (preview), CARTO AI Agents (MCP-based), early open-source GDAL MCP servers. Felt raised $15M (Jul 2025) for a natural-language GIS builder, a vertical app rather than an infra layer.
